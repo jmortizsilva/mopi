@@ -12,9 +12,11 @@ interface Props {
   busy?: boolean;
   disabled?: boolean;
   variant?: "primary" | "secondary" | "danger";
+  /** Referencia al elemento pulsable, para fijarle el foco de VoiceOver al navegar. */
+  ref?: React.Ref<React.ComponentRef<typeof View>>;
 }
 
-export function AccessibleButton({ label, onPress, hint, busy, disabled, variant = "primary" }: Props) {
+export function AccessibleButton({ label, onPress, hint, busy, disabled, variant = "primary", ref }: Props) {
   const dark = useColorScheme() === "dark";
   const bg =
     variant === "danger" ? "#B00020" : variant === "secondary" ? (dark ? "#2C2C2E" : "#E3E3E8") : "#0A62C2";
@@ -23,12 +25,14 @@ export function AccessibleButton({ label, onPress, hint, busy, disabled, variant
 
   return (
     <Pressable
+      ref={ref}
       onPress={onPress}
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
-      accessibilityState={{ disabled: !!isDisabled, busy: !!busy }}
+      // Solo `disabled`: junto con `busy`, VoiceOver diría "atenuado" y "ocupado" para lo mismo.
+      accessibilityState={{ disabled: !!isDisabled }}
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: bg, opacity: isDisabled ? 0.5 : pressed ? 0.8 : 1 },

@@ -25,9 +25,8 @@ export function OptionPicker({ label, options, value, onSelect, disabled }: Prop
 
   return (
     <View style={styles.container}>
-      <Text accessibilityRole="header" style={[styles.label, { color: textColor }]}>
-        {label}
-      </Text>
+      {/* Etiqueta de campo, no encabezado: con rol "header" ensuciaría el rotor de encabezados. */}
+      <Text style={[styles.label, { color: textColor }]}>{label}</Text>
       <View style={styles.options}>
         {options.map((opt) => {
           const selected = opt.code === value;

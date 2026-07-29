@@ -1,9 +1,11 @@
 /**
  * HomeScreen — estado del robot + controles principales + limpieza por habitaciones.
- * Diseñada para VoiceOver: cabeceras, región en vivo para el estado y anuncios al actuar.
+ * Diseñada para VoiceOver: cabeceras, el estado se lee al enfocarlo (no se canta la telemetría)
+ * y se anuncian con prioridad alta los resultados de acción y las transiciones importantes.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, AppState, RefreshControl, ScrollView, StyleSheet, Text, useColorScheme, Vibration, View } from "react-native";
+import { anunciar, anunciarImportante } from "../accesibilidad/anuncios";
 import { AccessibleButton } from "../ui/AccessibleButton";
 import { SettingsScreen } from "./SettingsScreen";
 import { summarizeStatus, type Device, type DecodedStatus, type MappedRoom, type RoborockClient } from "../roborock";
@@ -30,10 +32,15 @@ export function HomeScreen({ client, device, onLogout }: Props) {
   const [showSettings, setShowSettings] = useState(false);
 
   // Refs para el autorrefresco: evitar peticiones solapadas, no refrescar mientras hay una
-  // acción en curso, y no re-anunciar el estado si el texto no ha cambiado.
+  // acción en curso, y no re-renderizar el texto de estado si no ha cambiado.
   const inFlight = useRef(false);
   const busyRef = useRef(false);
   const lastText = useRef<string | null>(null);
+  // Estado previo, para detectar transiciones que merecen voz (error nuevo, vuelta a la base).
+  const prevStatus = useRef<DecodedStatus | null>(null);
+  // Foco: botón que abrió Configuración, para devolvérselo al volver (guía §3).
+  const settingsBtnRef = useRef<React.ComponentRef<typeof View>>(null);
+  const returningFromSettings = useRef(false);
   useEffect(() => {
     busyRef.current = busy;
   }, [busy]);
@@ -46,6 +53,19 @@ export function HomeScreen({ client, device, onLogout }: Props) {
       .catch(() => setRooms([]));
   }, [client, device.duid]);
 
+  // Transiciones que merecen voz. La telemetría (batería, tiempo) NO se canta: se lee al enfocar
+  // el estado. Solo avisamos de lo que un usuario querría saber sin estar mirando.
+  const announceTransitions = useCallback((prev: DecodedStatus | null, next: DecodedStatus) => {
+    if (!prev) return; // primera lectura: aún no hay "antes" con el que comparar
+    if (!prev.hasError && next.hasError) anunciarImportante(`Error: ${next.error.label}`);
+    for (const w of next.warnings) {
+      if (!prev.warnings.includes(w)) anunciarImportante(w); // aviso nuevo (falta de agua, base…)
+    }
+    if ((prev.cleaning || prev.returning) && next.charging && !next.cleaning && !next.returning) {
+      anunciar("De vuelta en la base");
+    }
+  }, []);
+
   // `silent`: sondeo en segundo plano. No muestra el spinner, y si falla NO pisa el último
   // estado bueno con un error transitorio (evita interrumpir al lector con ruido de red).
   const refreshStatus = useCallback(
@@ -55,9 +75,11 @@ export function HomeScreen({ client, device, onLogout }: Props) {
       if (!silent) setRefreshing(true);
       try {
         const s = await client.getStatus(device.duid);
+        announceTransitions(prevStatus.current, s); // antes de guardar el nuevo como "previo"
+        prevStatus.current = s;
         setStatus(s);
         const text = summarizeStatus(s);
-        // Solo tocar el estado si el texto cambió: así la región en vivo no re-anuncia lo mismo.
+        // Solo re-renderizar el texto si cambió (la telemetría se lee al enfocar, no se canta).
         if (text !== lastText.current) {
           lastText.current = text;
           setStatusText(text);
@@ -73,7 +95,7 @@ export function HomeScreen({ client, device, onLogout }: Props) {
         if (!silent) setRefreshing(false);
       }
     },
-    [client, device.duid],
+    [client, device.duid, announceTransitions],
   );
 
   useEffect(() => {
@@ -114,14 +136,14 @@ export function HomeScreen({ client, device, onLogout }: Props) {
   const runAction = useCallback(
     async (label: string, action: () => Promise<unknown>) => {
       setBusy(true);
-      AccessibilityInfo.announceForAccessibility(`${label}…`);
+      anunciar(`${label}…`); // informativo: espera turno, no pisa nada
       try {
         await action();
         Vibration.vibrate(60); // confirmación táctil
-        AccessibilityInfo.announceForAccessibility(`${label}: hecho`);
+        anunciarImportante(`${label}: hecho`); // resultado: prioridad alta, no se corta
       } catch (e) {
         Vibration.vibrate([0, 120, 80, 120]); // patrón de error
-        AccessibilityInfo.announceForAccessibility(`${label}: error`);
+        anunciarImportante(`${label}: error`);
         setStatusText(`Error al ${label.toLowerCase()}: ${(e as Error).message}`);
       } finally {
         setBusy(false);
@@ -131,10 +153,30 @@ export function HomeScreen({ client, device, onLogout }: Props) {
     [refreshStatus],
   );
 
+  // Al volver de Configuración, devolver el foco al botón que la abrió (guía §3). El margen deja
+  // que la pantalla se monte antes de fijar el foco.
+  useEffect(() => {
+    if (showSettings || !returningFromSettings.current) return;
+    returningFromSettings.current = false;
+    const t = setTimeout(() => {
+      if (settingsBtnRef.current) AccessibilityInfo.sendAccessibilityEvent(settingsBtnRef.current, "focus");
+    }, 300);
+    return () => clearTimeout(t);
+  }, [showSettings]);
+
   const duid = device.duid;
 
   if (showSettings) {
-    return <SettingsScreen client={client} device={device} onBack={() => setShowSettings(false)} />;
+    return (
+      <SettingsScreen
+        client={client}
+        device={device}
+        onBack={() => {
+          returningFromSettings.current = true;
+          setShowSettings(false);
+        }}
+      />
+    );
   }
 
   return (
@@ -146,14 +188,14 @@ export function HomeScreen({ client, device, onLogout }: Props) {
         {device.name ?? "Mi robot"}
       </Text>
 
-      {/* Estado en región en vivo: VoiceOver lo lee al cambiar */}
+      {/* El estado se lee al enfocarlo. No se usa accessibilityLiveRegion: en iOS es un no-op
+          (solo Android) y cantar la telemetría en cada sondeo sería inutilizable (guía §2). Las
+          transiciones que importan se anuncian aparte en announceTransitions. */}
       <View style={[styles.card, { backgroundColor: cardBg }]}>
         <Text accessibilityRole="header" style={[styles.sectionTitle, { color: textColor }]}>
           Estado
         </Text>
-        <Text accessibilityLiveRegion="polite" style={[styles.statusText, { color: textColor }]}>
-          {statusText}
-        </Text>
+        <Text style={[styles.statusText, { color: textColor }]}>{statusText}</Text>
       </View>
 
       <View style={[styles.card, { backgroundColor: cardBg }]}>
@@ -186,7 +228,7 @@ export function HomeScreen({ client, device, onLogout }: Props) {
         </View>
       ) : null}
 
-      <AccessibleButton label="Configuración" hint="Ajustes de succión, agua, secado, volumen y más" onPress={() => setShowSettings(true)} />
+      <AccessibleButton ref={settingsBtnRef} label="Configuración" hint="Ajustes de succión, agua, secado, volumen y más" onPress={() => setShowSettings(true)} />
       <AccessibleButton label="Cerrar sesión" variant="danger" onPress={onLogout} />
     </ScrollView>
   );

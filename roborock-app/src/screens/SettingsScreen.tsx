@@ -5,6 +5,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, useColorScheme, Vibration, View } from "react-native";
+import { anunciar, anunciarImportante } from "../accesibilidad/anuncios";
 import {
   decodeConsumables,
   type DeviceCapabilities,
@@ -79,6 +80,9 @@ export function SettingsScreen({ client, device, onBack }: Props) {
   // construir controles de una función que este modelo no tiene (GUIA-ACCESIBILIDAD-RN.md §7).
   const [caps, setCaps] = useState<DeviceCapabilities>({ autoEmptyDock: false, mopDrying: false, mopWashStation: false });
   const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Foco al título al entrar (pantalla sin cabecera nativa, guía §3). Solo la primera vez.
+  const titleRef = useRef<React.ComponentRef<typeof Text>>(null);
+  const focusedTitle = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -117,12 +121,26 @@ export function SettingsScreen({ client, device, onBack }: Props) {
     load();
   }, [load]);
 
+  // Al terminar de cargar, fijar el foco en el título (la pantalla no tiene cabecera nativa que
+  // VoiceOver anuncie sola). sendAccessibilityEvent, porque setAccessibilityFocus no va en la
+  // arquitectura nueva.
+  useEffect(() => {
+    if (loading || !s || focusedTitle.current) return;
+    focusedTitle.current = true;
+    const t = setTimeout(() => {
+      if (titleRef.current) AccessibilityInfo.sendAccessibilityEvent(titleRef.current, "focus");
+    }, 300);
+    return () => clearTimeout(t);
+  }, [loading, s]);
+
   // Cambio optimista + comando + aviso/vibración + detección de error del robot.
+  // `silent` evita el aviso de voz cuando el propio control ya lee su nuevo valor (ajustables),
+  // para no decirlo dos veces (guía §2). Los errores se anuncian siempre.
   const change = useCallback(
-    async (label: string, patch: Partial<UiSettings>, action: () => Promise<unknown>) => {
+    async (label: string, patch: Partial<UiSettings>, action: () => Promise<unknown>, opts?: { silent?: boolean }) => {
       if (Object.keys(patch).length) setS((prev) => (prev ? { ...prev, ...patch } : prev));
       setBusy(true);
-      AccessibilityInfo.announceForAccessibility(`${label}…`);
+      if (!opts?.silent) anunciar(`${label}…`);
       try {
         const result = await action();
         if (result && typeof result === "object" && "error" in (result as Record<string, unknown>)) {
@@ -130,10 +148,10 @@ export function SettingsScreen({ client, device, onBack }: Props) {
           throw new Error(typeof err === "string" ? err : JSON.stringify(err));
         }
         Vibration.vibrate(60);
-        AccessibilityInfo.announceForAccessibility(`${label}: hecho`);
+        if (!opts?.silent) anunciarImportante(`${label}: hecho`);
       } catch (e) {
         Vibration.vibrate([0, 120, 80, 120]);
-        AccessibilityInfo.announceForAccessibility(`${label}: error`);
+        anunciarImportante(`${label}: error`);
         setError(`Error al cambiar ${label.toLowerCase()}: ${(e as Error).message}`);
       } finally {
         setBusy(false);
@@ -146,7 +164,8 @@ export function SettingsScreen({ client, device, onBack }: Props) {
     (v: number) => {
       setS((prev) => (prev ? { ...prev, volume: v } : prev));
       if (volTimer.current) clearTimeout(volTimer.current);
-      volTimer.current = setTimeout(() => change("Volumen", {}, () => client.setVolume(duid, v)), 500);
+      // silent: el propio control ajustable ya lee "85%" al deslizar; no lo repitas por voz.
+      volTimer.current = setTimeout(() => change("Volumen", {}, () => client.setVolume(duid, v), { silent: true }), 500);
     },
     [change, client, duid],
   );
@@ -223,7 +242,7 @@ export function SettingsScreen({ client, device, onBack }: Props) {
     <View style={styles.root} onAccessibilityEscape={onBack}>
       {header}
       <ScrollView contentContainerStyle={styles.container}>
-      <Text accessibilityRole="header" style={[styles.title, { color: textColor }]}>Configuración</Text>
+      <Text ref={titleRef} accessibilityRole="header" style={[styles.title, { color: textColor }]}>Configuración</Text>
 
       {/* Limpieza */}
       <View style={[styles.card, { backgroundColor: cardBg }]}>
