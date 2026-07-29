@@ -62,7 +62,8 @@ menciona solo para indicar compatibilidad.
 
 ## TestFlight — información de prueba
 
-- **Correo de contacto / feedback**: `jmortizsilva@gmail.com`
+- **Correo de contacto / feedback**: pon tu correo privado **directamente en App Store Connect**
+  (campo "Feedback Email" de TestFlight). NO lo escribas en este repositorio, que es público.
 - **Descripción beta** (qué es la app):
 
 ```
@@ -124,7 +125,8 @@ Mopi es una aplicación independiente para controlar robots aspiradores Roborock
 
 4. Eliminar tus datos. Cerrar sesión en la app borra la sesión guardada en tu dispositivo.
 
-5. Contacto: jmortizsilva@gmail.com
+5. Contacto: a través de las incidencias del proyecto en GitHub
+   (https://github.com/jmortizsilva/mopi/issues).
 
 Mopi no está afiliada a Roborock.
 ```

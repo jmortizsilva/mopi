@@ -104,4 +104,4 @@ La reimplementación del protocolo se apoya en el trabajo de la comunidad, espec
 
 ## 📄 Licencia
 
-Pendiente de decidir. Si quieres reutilizar algo, escribe a jmortizsilva@gmail.com.
+Pendiente de decidir. Si quieres reutilizar algo, abre una [incidencia en GitHub](https://github.com/jmortizsilva/mopi/issues).
