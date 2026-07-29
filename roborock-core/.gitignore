@@ -1,0 +1,4 @@
+node_modules/
+# Datos sensibles del script de prueba: sesión y clientId
+examples/.session.json
+examples/.clientid

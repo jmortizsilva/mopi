@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Expo / build
+.expo/
+**/.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# ⚠️ Credenciales y sesión del probe (NUNCA subir: llevan tu token de Roborock)
+**/examples/.session.json
+**/examples/.clientid
+**/.env
+**/.env.*
+
+# Ajustes locales de Claude Code
+.claude/
+**/.claude/
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
+*.log
