@@ -4,10 +4,12 @@
  * de errores del robot.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, Alert, ScrollView, StyleSheet, Text, useColorScheme, Vibration, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, useColorScheme, Vibration, View } from "react-native";
 import {
   decodeConsumables,
+  type DeviceCapabilities,
   firstNumber,
+  resolveCapabilities,
   type Consumable,
   type Device,
   FAN_POWER_OPTIONS,
@@ -65,6 +67,7 @@ export function SettingsScreen({ client, device, onBack }: Props) {
   const dark = useColorScheme() === "dark";
   const textColor = dark ? "#FFFFFF" : "#111111";
   const cardBg = dark ? "#1C1C1E" : "#F2F2F7";
+  const accent = dark ? "#0A84FF" : "#0A62C2";
   const duid = device.duid;
 
   const [loading, setLoading] = useState(true);
@@ -72,6 +75,9 @@ export function SettingsScreen({ client, device, onBack }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState<UiSettings | null>(null);
   const [consumables, setConsumables] = useState<Consumable[]>([]);
+  // Capacidades del robot: se empieza sin nada y se resuelve al leer los ajustes, para no
+  // construir controles de una función que este modelo no tiene (GUIA-ACCESIBILIDAD-RN.md §7).
+  const [caps, setCaps] = useState<DeviceCapabilities>({ autoEmptyDock: false, mopDrying: false, mopWashStation: false });
   const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -99,6 +105,7 @@ export function SettingsScreen({ client, device, onBack }: Props) {
         washTowel: g(dump.wash_towel_mode).wash_mode ?? null,
       });
       setConsumables(decodeConsumables(dump.consumables));
+      setCaps(resolveCapabilities(client.modelFor(duid), dump));
     } catch (e) {
       setError("No se pudieron leer los ajustes: " + (e as Error).message);
     } finally {
@@ -183,17 +190,39 @@ export function SettingsScreen({ client, device, onBack }: Props) {
     [change, client, duid, load],
   );
 
+  // Cabecera estilo iOS: "Volver" arriba a la izquierda y primero en el orden de lectura.
+  // `onAccessibilityEscape` en la raíz atiende el gesto estándar de VoiceOver (rascar con dos
+  // dedos) para retroceder.
+  const header = (
+    <View style={styles.header}>
+      <Pressable
+        onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel="Volver"
+        hitSlop={10}
+        style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.5 : 1 }]}
+      >
+        <Text style={[styles.backText, { color: accent }]}>‹ Volver</Text>
+      </Pressable>
+    </View>
+  );
+
   if (loading || !s) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-        <Text style={{ color: textColor, marginTop: 12 }}>Leyendo ajustes…</Text>
+      <View style={styles.root} onAccessibilityEscape={onBack}>
+        {header}
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+          <Text style={{ color: textColor, marginTop: 12 }}>Leyendo ajustes…</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.root} onAccessibilityEscape={onBack}>
+      {header}
+      <ScrollView contentContainerStyle={styles.container}>
       <Text accessibilityRole="header" style={[styles.title, { color: textColor }]}>Configuración</Text>
 
       {/* Limpieza */}
@@ -214,17 +243,25 @@ export function SettingsScreen({ client, device, onBack }: Props) {
           onSelect={(c) => change("Modo de fregado", { mopMode: c }, () => client.setMopMode(duid, c))} />
       </View>
 
-      {/* Estación */}
-      <View style={[styles.card, { backgroundColor: cardBg }]}>
-        <Text accessibilityRole="header" style={[styles.section, { color: textColor }]}>Estación (base)</Text>
-        <ToggleRow label="Secado automático de mopa" value={s.mopAutoDry} disabled={busy}
-          hint="Seca las mopas automáticamente tras fregar"
-          onValueChange={(v) => change("Secado automático", { mopAutoDry: v }, () => client.setMopAutoDry(duid, v))} />
-        <ToggleRow label="Auto-vaciado del polvo" value={s.dustSwitch} disabled={busy}
-          onValueChange={(v) => change("Auto-vaciado", { dustSwitch: v }, () => client.setDustSwitch(duid, v))} />
-        <OptionPicker label="Intensidad de lavado de mopa" options={WASH_TOWEL_OPTIONS} value={s.washTowel} disabled={busy}
-          onSelect={(c) => change("Lavado de mopa", { washTowel: c }, () => client.setWashTowelMode(duid, c))} />
-      </View>
+      {/* Estación (base): solo se construye lo que este modelo tiene de verdad. */}
+      {caps.mopDrying || caps.autoEmptyDock || caps.mopWashStation ? (
+        <View style={[styles.card, { backgroundColor: cardBg }]}>
+          <Text accessibilityRole="header" style={[styles.section, { color: textColor }]}>Estación (base)</Text>
+          {caps.mopDrying ? (
+            <ToggleRow label="Secado automático de mopa" value={s.mopAutoDry} disabled={busy}
+              hint="Seca las mopas automáticamente tras fregar"
+              onValueChange={(v) => change("Secado automático", { mopAutoDry: v }, () => client.setMopAutoDry(duid, v))} />
+          ) : null}
+          {caps.autoEmptyDock ? (
+            <ToggleRow label="Auto-vaciado del polvo" value={s.dustSwitch} disabled={busy}
+              onValueChange={(v) => change("Auto-vaciado", { dustSwitch: v }, () => client.setDustSwitch(duid, v))} />
+          ) : null}
+          {caps.mopWashStation ? (
+            <OptionPicker label="Intensidad de lavado de mopa" options={WASH_TOWEL_OPTIONS} value={s.washTowel} disabled={busy}
+              onSelect={(c) => change("Lavado de mopa", { washTowel: c }, () => client.setWashTowelMode(duid, c))} />
+          ) : null}
+        </View>
+      ) : null}
 
       {/* Comportamiento */}
       <View style={[styles.card, { backgroundColor: cardBg }]}>
@@ -272,13 +309,17 @@ export function SettingsScreen({ client, device, onBack }: Props) {
 
       {error ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{error}</Text> : null}
 
-      <AccessibleButton label="Recargar ajustes" variant="secondary" busy={busy} onPress={load} />
-      <AccessibleButton label="Volver" onPress={onBack} />
-    </ScrollView>
+        <AccessibleButton label="Recargar ajustes" variant="secondary" busy={busy} onPress={load} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
+  header: { paddingHorizontal: 8, paddingTop: 4, paddingBottom: 2 },
+  backBtn: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 6 },
+  backText: { fontSize: 18, fontWeight: "600" },
   container: { padding: 16, gap: 14 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { fontSize: 26, fontWeight: "700" },

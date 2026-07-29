@@ -272,6 +272,30 @@ export class HttpApi {
     };
   }
 
+  /**
+   * Nombres de habitación de un dispositivo COMPARTIDO ("recibido").
+   *
+   * Las habitaciones de `getHomeData().rooms` pertenecen al home de la cuenta actual, así que
+   * una cuenta invitada no ve los nombres que puso el dueño. Este endpoint los devuelve para
+   * el invitado (misma fuente que usa la app oficial → los nombres se sincronizan). El campo
+   * llega como `roomId`; se normaliza a `id` para casar con `get_room_mapping`.
+   * Tolera fallos (dispositivo propio, sin permiso…) devolviendo [].
+   */
+  async getSharedDeviceRooms(duid: string): Promise<Room[]> {
+    try {
+      const body = await this.realApiGet(`user/deviceshare/query/${duid}/rooms`);
+      if (!body?.success || !Array.isArray(body.result)) return [];
+      return body.result
+        .map((room: any) => {
+          const id = room?.id ?? room?.roomId;
+          return { id: Number(id), name: String(room?.name ?? "") };
+        })
+        .filter((r: Room) => Number.isFinite(r.id) && r.name !== "");
+    } catch {
+      return [];
+    }
+  }
+
   /** Mapa duid → localKey (necesario para cifrar/descifrar mensajes). */
   static localKeyMap(home: HomeData): Map<string, string> {
     return new Map(home.devices.map((d) => [d.duid, d.localKey]));

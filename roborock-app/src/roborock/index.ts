@@ -10,3 +10,4 @@ export * from "./roborockClient";
 export * from "./statusDecoder";
 export * from "./settingsDecoder";
 export * from "./commands";
+export * from "./capabilities";

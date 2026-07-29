@@ -13,7 +13,7 @@
  *   await client.start();                     // carga dispositivos + conecta MQTT
  *   const status = await client.sendCommand(duid, "get_status");
  */
-import { HomeData, HttpApi } from "./httpApi";
+import { HomeData, HttpApi, Product, Room } from "./httpApi";
 import { RoborockMqtt } from "./mqttApi";
 import { buildV1Request, parseV1Response, PROTO_RPC_RESPONSE, RawFrame } from "./messageParser";
 import { PendingRequests } from "./pendingRequests";
@@ -48,6 +48,19 @@ export function joinRoomMapping(mapping: unknown, rooms: { id: number; name: str
   });
 }
 
+/** Une listas de habitaciones quitando duplicados por id (la primera gana). Pura → testable. */
+export function dedupeRoomsById(rooms: Room[]): Room[] {
+  const seen = new Set<string>();
+  const out: Room[] = [];
+  for (const r of rooms) {
+    const key = String(r.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
+}
+
 export class RoborockClient {
   readonly http: HttpApi;
   private mqtt: RoborockMqtt | null = null;
@@ -79,6 +92,17 @@ export class RoborockClient {
 
   get rooms() {
     return this.home?.rooms ?? [];
+  }
+
+  get products(): Product[] {
+    return this.home?.products ?? [];
+  }
+
+  /** Cadena de modelo del dispositivo (p. ej. "roborock.vacuum.a170"), o null si se desconoce. */
+  modelFor(duid: string): string | null {
+    const device = this.devices.find((d) => d.duid === duid);
+    if (!device) return null;
+    return this.products.find((p) => p.id === device.productId)?.model ?? null;
   }
 
   /** Garantiza que el MQTT está conectado, reconectando bajo demanda (deduplicando). */
@@ -190,13 +214,27 @@ export class RoborockClient {
     return this.sendCommand(duid, METHOD.ROOM_MAPPING);
   }
 
+  // Nombres de habitaciones compartidas por duid, cacheados (evita repetir la llamada de red).
+  private sharedRoomsCache = new Map<string, Room[]>();
+
   /**
    * Habitaciones REALES del mapa (nombre + id de segmento correcto para limpiar).
-   * Filtra las habitaciones fantasma de la cuenta que no están en el mapa actual.
+   * Cruza el mapa con los nombres de la casa Y con los del dispositivo compartido, para que una
+   * cuenta invitada vea los nombres que puso el dueño. Filtra las fantasma no mapeadas.
    */
   async getMappedRooms(duid: string): Promise<MappedRoom[]> {
-    const mapping = await this.getRoomMapping(duid);
-    return joinRoomMapping(mapping, this.home?.rooms ?? []);
+    const [mapping, shared] = await Promise.all([this.getRoomMapping(duid), this.getSharedRooms(duid)]);
+    const rooms = dedupeRoomsById([...(this.home?.rooms ?? []), ...shared]);
+    return joinRoomMapping(mapping, rooms);
+  }
+
+  /** Habitaciones de un dispositivo compartido (cacheadas). Vacío para dispositivos propios. */
+  private async getSharedRooms(duid: string): Promise<Room[]> {
+    const cached = this.sharedRoomsCache.get(duid);
+    if (cached) return cached;
+    const rooms = await this.http.getSharedDeviceRooms(duid);
+    this.sharedRoomsCache.set(duid, rooms);
+    return rooms;
   }
   getConsumables(duid: string): Promise<unknown> {
     return this.sendCommand(duid, METHOD.CONSUMABLE);

@@ -167,6 +167,15 @@ GET {rriot.r.a}/v3/user/homes/{rrHomeId}
   👉 **El Qrevo S5V casi con seguridad es `pv = "1.0"` (protocolo V1).** Confírmalo en runtime:
   determina la ruta de cifrado por `device.pv`.
 
+> **Habitaciones de un dispositivo COMPARTIDO.** `result.rooms[]` son las de TU casa. Si el robot
+> te lo han compartido (aparece en `receivedDevices`, no en `devices`), sus habitaciones NO están
+> ahí y `get_room_mapping` cae a "Habitación N". Los nombres del dueño se leen aparte (misma
+> fuente que la app oficial → se sincronizan):
+> ```
+> GET {rriot.r.a}/user/deviceshare/query/{duid}/rooms   (Hawk)
+> → result[] : { roomId, name }     // normaliza roomId → id para casar con get_room_mapping
+> ```
+
 ---
 
 ## 3. Firma Hawk (para la "Real API")

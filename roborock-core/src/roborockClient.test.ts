@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { joinRoomMapping } from "./roborockClient";
+import { dedupeRoomsById, joinRoomMapping } from "./roborockClient";
 
 // Datos REALES del Qrevo S5V (get_room_mapping + habitaciones de la casa).
 const MAPPING = [
@@ -49,5 +49,33 @@ describe("joinRoomMapping", () => {
 
   it("devuelve vacío si el mapeo no es un array", () => {
     expect(joinRoomMapping("ok", HOME_ROOMS)).toEqual([]);
+  });
+
+  // Cuenta compartida: home.rooms viene vacío, pero los nombres llegan por getSharedDeviceRooms.
+  it("resuelve los nombres desde las habitaciones compartidas cuando la casa no las tiene", () => {
+    const shared = [
+      { id: 46915217, name: "Pasillo" },
+      { id: 46915241, name: "Dormitorio" },
+    ];
+    const rooms = dedupeRoomsById([...[], ...shared]);
+    const mapped = joinRoomMapping(MAPPING.slice(0, 2), rooms);
+    expect(mapped).toEqual([
+      { segmentId: 1, roomId: "46915217", name: "Pasillo" },
+      { segmentId: 2, roomId: "46915241", name: "Dormitorio" },
+    ]);
+  });
+});
+
+describe("dedupeRoomsById", () => {
+  it("quita duplicados por id conservando la primera aparición", () => {
+    const rooms = dedupeRoomsById([
+      { id: 1, name: "Casa" },
+      { id: 2, name: "Cocina" },
+      { id: 1, name: "Compartida" },
+    ]);
+    expect(rooms).toEqual([
+      { id: 1, name: "Casa" },
+      { id: 2, name: "Cocina" },
+    ]);
   });
 });
