@@ -211,7 +211,10 @@ export function SettingsScreen({ client, device, onBack }: Props) {
 
   // Cabecera estilo iOS: "Volver" arriba a la izquierda y primero en el orden de lectura.
   // `onAccessibilityEscape` en la raíz atiende el gesto estándar de VoiceOver (rascar con dos
-  // dedos) para retroceder.
+  // dedos) para retroceder. Necesita `collapsable={false}`: con la arquitectura nueva (Fabric),
+  // una View que solo maqueta (sin más props nativas) se elimina de la jerarquía nativa como
+  // optimización, y el handler no llega a registrarse en ninguna vista real — el gesto no hace
+  // nada, sin dar error. `collapsable={false}` fuerza a que exista de verdad.
   const header = (
     <View style={styles.header}>
       <Pressable
@@ -228,7 +231,7 @@ export function SettingsScreen({ client, device, onBack }: Props) {
 
   if (loading || !s) {
     return (
-      <View style={styles.root} onAccessibilityEscape={onBack}>
+      <View style={styles.root} collapsable={false} onAccessibilityEscape={onBack}>
         {header}
         <View style={styles.center}>
           <ActivityIndicator size="large" />
@@ -239,7 +242,7 @@ export function SettingsScreen({ client, device, onBack }: Props) {
   }
 
   return (
-    <View style={styles.root} onAccessibilityEscape={onBack}>
+    <View style={styles.root} collapsable={false} onAccessibilityEscape={onBack}>
       {header}
       <ScrollView contentContainerStyle={styles.container}>
       <Text ref={titleRef} accessibilityRole="header" style={[styles.title, { color: textColor }]}>Configuración</Text>
