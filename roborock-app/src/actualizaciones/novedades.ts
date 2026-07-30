@@ -6,6 +6,7 @@
  * "novedades"). Frases cortas, una por línea.
  */
 export const NOVEDADES = [
-  "Nuevo registro de pruebas en Configuracion, Diagnostico: inicia, haz pruebas y comparte el registro.",
-  "Sirve para ayudarnos a afinar los modos de limpieza de tu modelo.",
+  "Modo de limpieza rehecho con los 3 modos reales: solo aspirar, aspirar y fregar, y solo fregar.",
+  "Cada modo ofrece solo las opciones validas (ruta rapida incluida; profundas solo en solo fregar).",
+  "Arreglado el boton de secar la mopa (daba error de parametros).",
 ].join("\n");

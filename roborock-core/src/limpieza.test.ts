@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { succionCompatibleConFregado, estadoLimpieza, esRutaProfunda, FAN_MAX, FAN_EQUILIBRADO } from "./limpieza";
+import {
+  succionCompatibleConFregado,
+  estadoLimpieza,
+  esRutaProfunda,
+  detectarModo,
+  opcionesModo,
+  planCambioModo,
+  FAN_MAX,
+  FAN_EQUILIBRADO,
+  FAN_MINIMA,
+} from "./limpieza";
 
 describe("succionCompatibleConFregado", () => {
   it("Máximo+ (108) baja a Máximo (104) al fregar", () => {
@@ -56,5 +66,53 @@ describe("estadoLimpieza", () => {
 
   it("agua desconocida (null): no asume que friega", () => {
     expect(estadoLimpieza(null, 300).fregando).toBe(false);
+  });
+});
+
+describe("detectarModo", () => {
+  it("agua apagada (200) = solo aspirar, sea cual sea la succión", () => {
+    expect(detectarModo(104, 200)).toBe("aspirar");
+    expect(detectarModo(108, 200)).toBe("aspirar");
+  });
+  it("agua + succión mínima (105) = solo fregar", () => {
+    expect(detectarModo(FAN_MINIMA, 202)).toBe("fregar");
+  });
+  it("agua + succión real = aspirar y fregar", () => {
+    expect(detectarModo(103, 202)).toBe("aspirar_fregar");
+  });
+});
+
+describe("opcionesModo", () => {
+  it("solo aspirar: succión con Máximo+, sin agua ni ruta", () => {
+    const o = opcionesModo("aspirar");
+    expect(o.fanCodes).toContain(108);
+    expect(o.mostrarAgua).toBe(false);
+    expect(o.mostrarRuta).toBe(false);
+  });
+  it("aspirar y fregar: succión sin Máximo+, rutas estándar/rápido", () => {
+    const o = opcionesModo("aspirar_fregar");
+    expect(o.fanCodes).not.toContain(108);
+    expect(o.rutaCodes).toEqual([300, 304]);
+    expect(o.succionFija).toBe(false);
+  });
+  it("solo fregar: succión fija, rutas incluyen profundas", () => {
+    const o = opcionesModo("fregar");
+    expect(o.succionFija).toBe(true);
+    expect(o.mostrarSuccion).toBe(false);
+    expect(o.rutaCodes).toEqual([300, 304, 301, 303]);
+  });
+});
+
+describe("planCambioModo", () => {
+  it("a solo aspirar: apaga el agua; si venía de succión mínima, la sube", () => {
+    expect(planCambioModo("aspirar", 202, FAN_MINIMA)).toEqual({ waterBox: 200, fanPower: FAN_EQUILIBRADO });
+    expect(planCambioModo("aspirar", 202, 103)).toEqual({ waterBox: 200 });
+  });
+  it("a solo fregar: enciende agua y pone succión mínima", () => {
+    expect(planCambioModo("fregar", 200, 104)).toEqual({ waterBox: 202, fanPower: FAN_MINIMA });
+  });
+  it("a aspirar y fregar: agua on y succión real (Máximo+ baja a Máximo)", () => {
+    expect(planCambioModo("aspirar_fregar", 200, 108)).toEqual({ waterBox: 202, fanPower: FAN_MAX });
+    expect(planCambioModo("aspirar_fregar", 203, 103)).toEqual({ waterBox: 203 });
   });
 });

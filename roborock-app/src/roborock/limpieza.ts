@@ -59,3 +59,77 @@ export function estadoLimpieza(waterBoxMode: number | null, mopMode: number | nu
     succionMinimizadaPorRobot: fregando && rutaProfunda,
   };
 }
+
+// --- Modelo de los 3 modos de limpieza del a170 (deducido de logs reales del robot) ---
+//
+// El modo se codifica con dos campos, que están acoplados en el robot:
+//  - water_box_mode = 200  → SOLO ASPIRAR (mopa apagada); succión libre, incluido Máximo+ (108).
+//  - water_box_mode >= 201 + fan_power = 105 (Suave = succión mínima) → SOLO FREGAR; admite todas
+//    las rutas, incluidas profunda/profunda+.
+//  - water_box_mode >= 201 + fan_power real (101-104) → ASPIRAR Y FREGAR; rutas estándar/rápido.
+// Acoplamiento observado: poner ruta profunda fuerza fan a 105; poner succión real resetea la
+// ruta a estándar. Por eso profunda/profunda+ solo tienen sentido en "solo fregar".
+
+export type ModoLimpieza = "aspirar" | "aspirar_fregar" | "fregar";
+
+export const FAN_MINIMA = 105; // "Suave": succión mínima = modo solo fregar
+
+export const MODOS: { modo: ModoLimpieza; label: string }[] = [
+  { modo: "aspirar", label: "Solo aspirar" },
+  { modo: "aspirar_fregar", label: "Aspirar y fregar" },
+  { modo: "fregar", label: "Solo fregar" },
+];
+
+/** Modo actual según succión y agua. */
+export function detectarModo(fan: number | null, water: number | null): ModoLimpieza {
+  if (water == null || water === AGUA_APAGADA) return "aspirar";
+  return fan === FAN_MINIMA ? "fregar" : "aspirar_fregar";
+}
+
+// Succiones y rutas que ofrece cada modo (códigos del robot).
+const FAN_ASPIRAR = [101, 102, 103, 104, 108]; // incluye Máximo+
+const FAN_ASPIRAR_FREGAR = [101, 102, 103, 104]; // sin Máximo+ (no lo mantiene con mopa)
+const RUTA_ASPIRAR_FREGAR = [300, 304]; // estándar, rápido
+const RUTA_FREGAR = [300, 304, 301, 303]; // estándar, rápido, profunda, profunda+
+
+export interface OpcionesModo {
+  mostrarSuccion: boolean;
+  mostrarAgua: boolean;
+  mostrarRuta: boolean;
+  /** En "solo fregar" la succión la fija el robot (mínima): no se elige. */
+  succionFija: boolean;
+  fanCodes: number[];
+  rutaCodes: number[];
+}
+
+export function opcionesModo(modo: ModoLimpieza): OpcionesModo {
+  switch (modo) {
+    case "aspirar":
+      return { mostrarSuccion: true, mostrarAgua: false, mostrarRuta: false, succionFija: false, fanCodes: FAN_ASPIRAR, rutaCodes: [] };
+    case "aspirar_fregar":
+      return { mostrarSuccion: true, mostrarAgua: true, mostrarRuta: true, succionFija: false, fanCodes: FAN_ASPIRAR_FREGAR, rutaCodes: RUTA_ASPIRAR_FREGAR };
+    case "fregar":
+      return { mostrarSuccion: false, mostrarAgua: true, mostrarRuta: true, succionFija: true, fanCodes: [], rutaCodes: RUTA_FREGAR };
+  }
+}
+
+export interface PlanCambioModo {
+  waterBox?: number;
+  fanPower?: number;
+}
+
+/** Comandos para entrar en un modo, dado el estado actual (agua/succión). Pura → testable. */
+export function planCambioModo(modo: ModoLimpieza, currentWater: number | null, currentFan: number | null): PlanCambioModo {
+  if (modo === "aspirar") {
+    const plan: PlanCambioModo = { waterBox: AGUA_APAGADA };
+    if (currentFan === FAN_MINIMA) plan.fanPower = FAN_EQUILIBRADO; // 105 no es succión de aspirado
+    return plan;
+  }
+  const water = currentWater != null && currentWater > AGUA_APAGADA ? currentWater : 202;
+  if (modo === "fregar") {
+    return { waterBox: water, fanPower: FAN_MINIMA }; // succión mínima = solo fregar
+  }
+  // aspirar_fregar: la succión debe ser real (105/108/109 no valen)
+  const fix = succionCompatibleConFregado(currentFan);
+  return fix != null ? { waterBox: water, fanPower: fix } : { waterBox: water };
+}

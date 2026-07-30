@@ -13,15 +13,17 @@ import type { RootStackParamList } from "../navigation";
 import {
   decodeConsumables,
   type DeviceCapabilities,
-  estadoLimpieza,
-  FAN_MAX_PLUS,
+  detectarModo,
+  FAN_POWER_LABELS,
   firstNumber,
+  MODOS,
+  type ModoLimpieza,
+  MOP_MODE_LABELS,
+  opcionesModo,
+  planCambioModo,
   resolveCapabilities,
-  succionCompatibleConFregado,
   type Consumable,
   type Device,
-  FAN_POWER_OPTIONS,
-  MOP_MODE_OPTIONS,
   type RoborockClient,
   WATER_BOX_OPTIONS,
 } from "../roborock";
@@ -41,15 +43,13 @@ const WASH_TOWEL_OPTIONS: PickerOption[] = [
   { code: 2, label: "Profundo" },
 ];
 
-// Modo de limpieza (alto nivel). Se traduce a combinación de succión + agua.
-// Nota: "Solo fregar" (cepillo levantado) NO lo soporta el Qrevo S5V (a170) — el robot
-// acepta el comando pero no lo mantiene — así que no se ofrece.
-const MODE_VAC_MOP = 0;
-const MODE_VACUUM = 1;
-const MODE_OPTIONS: PickerOption[] = [
-  { code: MODE_VAC_MOP, label: "Aspirar y fregar" },
-  { code: MODE_VACUUM, label: "Solo aspirar" },
-];
+// Modo de limpieza: los 3 modos reales del a170. El OptionPicker usa el índice como código.
+const MODO_ORDEN: ModoLimpieza[] = MODOS.map((m) => m.modo);
+const MODE_OPTIONS: PickerOption[] = MODOS.map((m, i) => ({ code: i, label: m.label }));
+
+/** Construye opciones {code,label} para el selector a partir de una lista de códigos y su tabla. */
+const opcionesDe = (codes: number[], labels: Record<number, string>): PickerOption[] =>
+  codes.map((code) => ({ code, label: labels[code] ?? `Código ${code}` }));
 
 
 interface UiSettings {
@@ -184,26 +184,28 @@ export function SettingsScreen({ client, device }: Props) {
     [change, client, duid],
   );
 
-  // Modo de limpieza: lo traducimos a agua on/off + succión (109 = cepillo levantado).
+  // Modo de limpieza: cada modo se traduce a la combinación de agua + succión que el a170
+  // codifica de verdad (ver planCambioModo). El robot puede reajustar (ruta profunda ⟺ succión
+  // mínima); la verificación en caliente lo refleja.
   const selectMode = useCallback(
-    (code: number) => {
+    (index: number) => {
       if (!s) return;
-      const water = s.waterBox && s.waterBox > 200 ? s.waterBox : 202;
-      if (code === MODE_VACUUM) {
-        change("Modo solo aspirar", { waterBox: 200 }, () => client.setWaterBox(duid, 200), { reconcile: true });
-      } else {
-        // Al fregar, la succión debe ser compatible (Máximo+ no vale → baja a Máximo).
-        const nuevaFan = succionCompatibleConFregado(s.fanPower);
-        change(
-          "Modo aspirar y fregar",
-          { waterBox: water, ...(nuevaFan != null ? { fanPower: nuevaFan } : {}) },
-          async () => {
-            if (nuevaFan != null) await client.setFanPower(duid, nuevaFan);
-            await client.setWaterBox(duid, water);
-          },
-          { reconcile: true },
-        );
-      }
+      const modo = MODO_ORDEN[index];
+      const plan = planCambioModo(modo, s.waterBox, s.fanPower);
+      const label = MODOS[index].label;
+      const patch: Partial<UiSettings> = {};
+      if (plan.waterBox != null) patch.waterBox = plan.waterBox;
+      if (plan.fanPower != null) patch.fanPower = plan.fanPower;
+      change(
+        `Modo ${label}`,
+        patch,
+        async () => {
+          // Succión primero: en el a170, fijar la succión resetea la ruta de fregado a estándar.
+          if (plan.fanPower != null) await client.setFanPower(duid, plan.fanPower);
+          if (plan.waterBox != null) await client.setWaterBox(duid, plan.waterBox);
+        },
+        { reconcile: true },
+      );
     },
     [s, change, client, duid],
   );
@@ -272,10 +274,11 @@ export function SettingsScreen({ client, device }: Props) {
     );
   }
 
-  // Qué ofrecer según el modo actual (reglas de compatibilidad documentadas).
-  const est = estadoLimpieza(s.waterBox, s.mopMode);
-  // Fregando, Máximo+ no está disponible: se quita de la lista de succión.
-  const fanOptions = est.fregando ? FAN_POWER_OPTIONS.filter((o) => o.code !== FAN_MAX_PLUS) : FAN_POWER_OPTIONS;
+  // Modo actual (detectado del estado) y qué controles/opciones ofrece.
+  const modo = detectarModo(s.fanPower, s.waterBox);
+  const opc = opcionesModo(modo);
+  const fanOptions = opcionesDe(opc.fanCodes, FAN_POWER_LABELS);
+  const rutaOptions = opcionesDe(opc.rutaCodes, MOP_MODE_LABELS);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -285,26 +288,24 @@ export function SettingsScreen({ client, device }: Props) {
         <OptionPicker
           label="Modo de limpieza"
           options={MODE_OPTIONS}
-          value={s.waterBox === 200 ? MODE_VACUUM : MODE_VAC_MOP}
+          value={MODO_ORDEN.indexOf(modo)}
           disabled={busy}
           onSelect={selectMode}
         />
-        <OptionPicker label="Potencia de aspirado" options={fanOptions} value={s.fanPower} disabled={busy}
-          onSelect={(c) => change("Potencia de aspirado", { fanPower: c }, () => client.setFanPower(duid, c), { reconcile: true })} />
-        {est.fregando ? (
-          <Text style={[styles.nota, { color: textColor }]}>Máximo+ solo está disponible aspirando sin fregar.</Text>
+        {opc.mostrarSuccion ? (
+          <OptionPicker label="Potencia de aspirado" options={fanOptions} value={s.fanPower} disabled={busy}
+            onSelect={(c) => change("Potencia de aspirado", { fanPower: c }, () => client.setFanPower(duid, c), { reconcile: true })} />
         ) : null}
-        {est.succionMinimizadaPorRobot ? (
-          <Text style={[styles.nota, { color: textColor }]}>En ruta profunda el robot reduce la succión automáticamente.</Text>
+        {opc.succionFija ? (
+          <Text style={[styles.nota, { color: textColor }]}>En "solo fregar" la succión es mínima (la fija el robot).</Text>
         ) : null}
-        {/* Los ajustes de fregado solo aplican si hay mopa (agua encendida). */}
-        {est.mostrarControlesFregado ? (
-          <>
-            <OptionPicker label="Nivel de agua" options={WATER_BOX_OPTIONS} value={s.waterBox} disabled={busy}
-              onSelect={(c) => change("Nivel de agua", { waterBox: c }, () => client.setWaterBox(duid, c), { reconcile: true })} />
-            <OptionPicker label="Modo de fregado" options={MOP_MODE_OPTIONS} value={s.mopMode} disabled={busy}
-              onSelect={(c) => change("Modo de fregado", { mopMode: c }, () => client.setMopMode(duid, c), { reconcile: true })} />
-          </>
+        {opc.mostrarAgua ? (
+          <OptionPicker label="Nivel de agua" options={WATER_BOX_OPTIONS} value={s.waterBox} disabled={busy}
+            onSelect={(c) => change("Nivel de agua", { waterBox: c }, () => client.setWaterBox(duid, c), { reconcile: true })} />
+        ) : null}
+        {opc.mostrarRuta ? (
+          <OptionPicker label="Modo de fregado" options={rutaOptions} value={s.mopMode} disabled={busy}
+            onSelect={(c) => change("Modo de fregado", { mopMode: c }, () => client.setMopMode(duid, c), { reconcile: true })} />
         ) : null}
       </View>
 
