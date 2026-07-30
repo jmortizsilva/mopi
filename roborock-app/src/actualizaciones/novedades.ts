@@ -6,7 +6,6 @@
  * "novedades"). Frases cortas, una por línea.
  */
 export const NOVEDADES = [
-  "La pantalla de limpieza ahora solo ofrece combinaciones que tu robot admite de verdad.",
-  "En solo aspirar se ocultan los ajustes de fregado; en ruta profunda se avisa de que baja la succion.",
-  "Si el robot no mantiene un ajuste que pides, la app te lo dice y muestra el valor real.",
+  "Nuevo registro de pruebas en Configuracion, Diagnostico: inicia, haz pruebas y comparte el registro.",
+  "Sirve para ayudarnos a afinar los modos de limpieza de tu modelo.",
 ].join("\n");

@@ -4,10 +4,11 @@
  * de errores del robot.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, useColorScheme, Vibration, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, useColorScheme, Vibration, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { anunciar, anunciarImportante } from "../accesibilidad/anuncios";
 import { comprobarActualizacion } from "../actualizaciones/ota";
+import { estaGrabando, finalizarPrueba, iniciarPrueba } from "../registro/log";
 import type { RootStackParamList } from "../navigation";
 import {
   decodeConsumables,
@@ -85,6 +86,9 @@ export function SettingsScreen({ client, device }: Props) {
   // construir controles de una función que este modelo no tiene (GUIA-ACCESIBILIDAD-RN.md §7).
   const [caps, setCaps] = useState<DeviceCapabilities>({ autoEmptyDock: false, mopDrying: false, mopWashStation: false });
   const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Registro de pruebas: el estado real vive en el módulo (persiste entre pantallas); aquí solo
+  // reflejamos si está activo para el botón. Al montar, leemos el estado actual.
+  const [grabando, setGrabando] = useState(estaGrabando());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -239,6 +243,23 @@ export function SettingsScreen({ client, device }: Props) {
     }
   }, [client, duid]);
 
+  // Registro de pruebas: graba todos los comandos y respuestas y los comparte como texto.
+  const iniciarRegistro = useCallback(() => {
+    iniciarPrueba({ Modelo: client.modelFor(duid) ?? "desconocido", App: "Mopi" });
+    setGrabando(true);
+    anunciarImportante("Registro iniciado. Haz las pruebas y vuelve aquí para finalizar y compartir.");
+  }, [client, duid]);
+
+  const finalizarRegistro = useCallback(async () => {
+    const texto = finalizarPrueba();
+    setGrabando(false);
+    try {
+      await Share.share({ message: texto });
+    } catch {
+      Alert.alert("Registro de pruebas", "No se pudo abrir la ventana de compartir.");
+    }
+  }, []);
+
   // El botón de volver, el gesto de escape de VoiceOver, el foco y el sonido de cambio de
   // pantalla los da la cabecera NATIVA de la pila (configurada en App.tsx). Aquí no hay que
   // maquetar nada de eso.
@@ -375,9 +396,25 @@ export function SettingsScreen({ client, device }: Props) {
       {/* Diagnóstico */}
       <View style={[styles.card, { backgroundColor: cardBg }]}>
         <Text accessibilityRole="header" style={[styles.section, { color: textColor }]}>Diagnóstico</Text>
-        <Text style={[styles.consumable, { color: textColor }]}>
-          Para depurar el modo de limpieza. Pulsa mientras el robot esté limpiando y léeme los valores.
-        </Text>
+        {grabando ? (
+          <>
+            <Text style={[styles.consumable, { color: textColor }]}>
+              Registrando pruebas… Haz los pasos indicados (aunque cambies de pantalla) y vuelve aquí para finalizar.
+            </Text>
+            <AccessibleButton label="Finalizar y compartir registro" busy={busy}
+              hint="Cierra la grabación y abre la ventana para enviarme el registro"
+              onPress={finalizarRegistro} />
+          </>
+        ) : (
+          <>
+            <Text style={[styles.consumable, { color: textColor }]}>
+              Para depurar los modos de limpieza. Inicia el registro, haz las pruebas que te indique y comparte el resultado.
+            </Text>
+            <AccessibleButton label="Iniciar registro de pruebas" variant="secondary"
+              hint="Empieza a grabar los comandos y respuestas del robot"
+              onPress={iniciarRegistro} />
+          </>
+        )}
         <AccessibleButton label="Ver estado técnico" variant="secondary" busy={busy}
           hint="Muestra los valores crudos del robot: succión, agua y fregado"
           onPress={verEstadoTecnico} />

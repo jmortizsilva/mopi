@@ -61,12 +61,24 @@ export function dedupeRoomsById(rooms: Room[]): Room[] {
   return out;
 }
 
+/** Actividad de un comando (para el registro de pruebas). `dir`: out = enviado, in = respuesta. */
+export interface ActividadComando {
+  dir: "out" | "in";
+  method: string;
+  messageID: number;
+  params?: unknown;
+  result?: unknown;
+  error?: string;
+}
+
 export class RoborockClient {
   readonly http: HttpApi;
   private mqtt: RoborockMqtt | null = null;
   private home: HomeData | null = null;
   private localKeys = new Map<string, string>();
   private readonly pending = new PendingRequests();
+  /** Hook opcional para observar comandos y respuestas (lo usa el registro de pruebas). */
+  onActivity?: (a: ActividadComando) => void;
 
   constructor(http: HttpApi) {
     this.http = http;
@@ -155,8 +167,18 @@ export class RoborockClient {
 
     if (!this.mqtt) throw new Error("MQTT no disponible tras conectar.");
     const promise = this.pending.add(messageID, method, { timeoutMs: opts.timeoutMs });
+    this.onActivity?.({ dir: "out", method, messageID, params: opts.params ?? [] });
     this.mqtt.publish(duid, frame);
-    return promise;
+    return promise.then(
+      (result) => {
+        this.onActivity?.({ dir: "in", method, messageID, result });
+        return result;
+      },
+      (error) => {
+        this.onActivity?.({ dir: "in", method, messageID, error: (error as Error)?.message ?? String(error) });
+        throw error;
+      },
+    );
   }
 
   async stop(): Promise<void> {

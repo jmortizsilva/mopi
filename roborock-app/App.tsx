@@ -13,6 +13,7 @@ import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import type { RootStackParamList } from "./src/navigation";
 import { useActualizacionesOTA } from "./src/actualizaciones/ota";
+import { registrarActividad } from "./src/registro/log";
 import { clearSession, getClientId, loadEmail, loadSession, saveEmail, saveSession } from "./src/session";
 
 type Phase = "loading" | "login" | "home";
@@ -32,6 +33,7 @@ export default function App() {
 
   const startClient = async (http: HttpApi) => {
     const client = new RoborockClient(http);
+    client.onActivity = registrarActividad; // el registro de pruebas ignora esto si no está grabando
     const home = await client.start();
     if (home.devices.length === 0) throw new Error("No hay dispositivos en la cuenta.");
     clientRef.current = client;
