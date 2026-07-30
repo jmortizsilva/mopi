@@ -6,7 +6,7 @@
  * "novedades"). Frases cortas, una por línea.
  */
 export const NOVEDADES = [
-  "Ahora puedes elegir varias habitaciones a la vez y limpiarlas juntas.",
-  "Nuevos botones para lavar o secar la mopa al momento, sin esperar a que termine.",
-  "Arreglado el modo aspirar y fregar: Maximo+ solo se ofrece aspirando sin fregar (el robot no lo mantiene con la mopa).",
+  "La pantalla de limpieza ahora solo ofrece combinaciones que tu robot admite de verdad.",
+  "En solo aspirar se ocultan los ajustes de fregado; en ruta profunda se avisa de que baja la succion.",
+  "Si el robot no mantiene un ajuste que pides, la app te lo dice y muestra el valor real.",
 ].join("\n");

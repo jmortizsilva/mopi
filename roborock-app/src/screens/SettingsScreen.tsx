@@ -12,6 +12,7 @@ import type { RootStackParamList } from "../navigation";
 import {
   decodeConsumables,
   type DeviceCapabilities,
+  estadoLimpieza,
   FAN_MAX_PLUS,
   firstNumber,
   resolveCapabilities,
@@ -126,7 +127,12 @@ export function SettingsScreen({ client, device }: Props) {
   // `silent` evita el aviso de voz cuando el propio control ya lee su nuevo valor (ajustables),
   // para no decirlo dos veces (guía §2). Los errores se anuncian siempre.
   const change = useCallback(
-    async (label: string, patch: Partial<UiSettings>, action: () => Promise<unknown>, opts?: { silent?: boolean }) => {
+    async (
+      label: string,
+      patch: Partial<UiSettings>,
+      action: () => Promise<unknown>,
+      opts?: { silent?: boolean; reconcile?: boolean },
+    ) => {
       if (Object.keys(patch).length) setS((prev) => (prev ? { ...prev, ...patch } : prev));
       setBusy(true);
       if (!opts?.silent) anunciar(`${label}…`);
@@ -137,7 +143,22 @@ export function SettingsScreen({ client, device }: Props) {
           throw new Error(typeof err === "string" ? err : JSON.stringify(err));
         }
         Vibration.vibrate(60);
-        if (!opts?.silent) anunciarImportante(`${label}: hecho`);
+        // Verificación en caliente: releer el estado y reflejar lo que el robot MANTUVO de verdad
+        // (algunas combinaciones no las conserva: Máximo+ al fregar, ruta profunda que baja la
+        // succión…). Si difiere de lo pedido, se avisa y la interfaz muestra el valor real.
+        if (opts?.reconcile) {
+          await new Promise((r) => setTimeout(r, 700)); // dar tiempo a que el robot lo aplique
+          const st = await client.getStatus(duid);
+          setS((prev) => (prev ? { ...prev, fanPower: st.fanPower.code, waterBox: st.waterBox.code, mopMode: st.mopMode.code } : prev));
+          const avisos: string[] = [];
+          if (patch.fanPower != null && st.fanPower.code !== patch.fanPower) avisos.push(`succión: ${st.fanPower.label}`);
+          if (patch.waterBox != null && st.waterBox.code !== patch.waterBox) avisos.push(`agua: ${st.waterBox.label}`);
+          if (patch.mopMode != null && st.mopMode.code !== patch.mopMode) avisos.push(`fregado: ${st.mopMode.label}`);
+          if (avisos.length) anunciarImportante(`El robot lo dejó en ${avisos.join(", ")}.`);
+          else if (!opts?.silent) anunciarImportante(`${label}: hecho`);
+        } else if (!opts?.silent) {
+          anunciarImportante(`${label}: hecho`);
+        }
       } catch (e) {
         Vibration.vibrate([0, 120, 80, 120]);
         anunciarImportante(`${label}: error`);
@@ -146,7 +167,7 @@ export function SettingsScreen({ client, device }: Props) {
         setBusy(false);
       }
     },
-    [],
+    [client, duid],
   );
 
   const onVolumeChange = useCallback(
@@ -165,14 +186,19 @@ export function SettingsScreen({ client, device }: Props) {
       if (!s) return;
       const water = s.waterBox && s.waterBox > 200 ? s.waterBox : 202;
       if (code === MODE_VACUUM) {
-        change("Modo solo aspirar", { waterBox: 200 }, () => client.setWaterBox(duid, 200));
+        change("Modo solo aspirar", { waterBox: 200 }, () => client.setWaterBox(duid, 200), { reconcile: true });
       } else {
         // Al fregar, la succión debe ser compatible (Máximo+ no vale → baja a Máximo).
         const nuevaFan = succionCompatibleConFregado(s.fanPower);
-        change("Modo aspirar y fregar", { waterBox: water, ...(nuevaFan != null ? { fanPower: nuevaFan } : {}) }, async () => {
-          if (nuevaFan != null) await client.setFanPower(duid, nuevaFan);
-          await client.setWaterBox(duid, water);
-        });
+        change(
+          "Modo aspirar y fregar",
+          { waterBox: water, ...(nuevaFan != null ? { fanPower: nuevaFan } : {}) },
+          async () => {
+            if (nuevaFan != null) await client.setFanPower(duid, nuevaFan);
+            await client.setWaterBox(duid, water);
+          },
+          { reconcile: true },
+        );
       }
     },
     [s, change, client, duid],
@@ -225,9 +251,10 @@ export function SettingsScreen({ client, device }: Props) {
     );
   }
 
-  // Fregando (agua != apagado), Máximo+ no está disponible: se quita de la lista de succión.
-  const mopping = s.waterBox !== 200;
-  const fanOptions = mopping ? FAN_POWER_OPTIONS.filter((o) => o.code !== FAN_MAX_PLUS) : FAN_POWER_OPTIONS;
+  // Qué ofrecer según el modo actual (reglas de compatibilidad documentadas).
+  const est = estadoLimpieza(s.waterBox, s.mopMode);
+  // Fregando, Máximo+ no está disponible: se quita de la lista de succión.
+  const fanOptions = est.fregando ? FAN_POWER_OPTIONS.filter((o) => o.code !== FAN_MAX_PLUS) : FAN_POWER_OPTIONS;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -242,14 +269,22 @@ export function SettingsScreen({ client, device }: Props) {
           onSelect={selectMode}
         />
         <OptionPicker label="Potencia de aspirado" options={fanOptions} value={s.fanPower} disabled={busy}
-          onSelect={(c) => change("Potencia de aspirado", { fanPower: c }, () => client.setFanPower(duid, c))} />
-        {mopping ? (
+          onSelect={(c) => change("Potencia de aspirado", { fanPower: c }, () => client.setFanPower(duid, c), { reconcile: true })} />
+        {est.fregando ? (
           <Text style={[styles.nota, { color: textColor }]}>Máximo+ solo está disponible aspirando sin fregar.</Text>
         ) : null}
-        <OptionPicker label="Nivel de agua" options={WATER_BOX_OPTIONS} value={s.waterBox} disabled={busy}
-          onSelect={(c) => change("Nivel de agua", { waterBox: c }, () => client.setWaterBox(duid, c))} />
-        <OptionPicker label="Modo de fregado" options={MOP_MODE_OPTIONS} value={s.mopMode} disabled={busy}
-          onSelect={(c) => change("Modo de fregado", { mopMode: c }, () => client.setMopMode(duid, c))} />
+        {est.succionMinimizadaPorRobot ? (
+          <Text style={[styles.nota, { color: textColor }]}>En ruta profunda el robot reduce la succión automáticamente.</Text>
+        ) : null}
+        {/* Los ajustes de fregado solo aplican si hay mopa (agua encendida). */}
+        {est.mostrarControlesFregado ? (
+          <>
+            <OptionPicker label="Nivel de agua" options={WATER_BOX_OPTIONS} value={s.waterBox} disabled={busy}
+              onSelect={(c) => change("Nivel de agua", { waterBox: c }, () => client.setWaterBox(duid, c), { reconcile: true })} />
+            <OptionPicker label="Modo de fregado" options={MOP_MODE_OPTIONS} value={s.mopMode} disabled={busy}
+              onSelect={(c) => change("Modo de fregado", { mopMode: c }, () => client.setMopMode(duid, c), { reconcile: true })} />
+          </>
+        ) : null}
       </View>
 
       {/* Estación (base): solo se construye lo que este modelo tiene de verdad. */}
