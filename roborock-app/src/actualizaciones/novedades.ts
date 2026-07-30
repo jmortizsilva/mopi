@@ -6,7 +6,9 @@
  * "novedades"). Frases cortas, una por línea.
  */
 export const NOVEDADES = [
-  "Prueba del sistema de actualizaciones: si ves este mensaje, el aviso, la descarga y la",
-  "instalacion por aire funcionan de principio a fin. En la proxima version pondremos aqui",
-  "las novedades de verdad.",
+  "El estado del robot se actualiza solo, sin tener que recargar a mano.",
+  "Las habitaciones salen con sus nombres reales, tambien en cuentas compartidas.",
+  "Navegacion nativa: sonidos y foco estandar al cambiar de pantalla, y volver con el gesto de VoiceOver.",
+  "Solo se muestran los controles compatibles con tu modelo de robot.",
+  "Aviso cuando hay una version nueva, con opcion de instalarla al momento.",
 ].join("\n");
