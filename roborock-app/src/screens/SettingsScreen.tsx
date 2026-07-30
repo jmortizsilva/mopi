@@ -195,6 +195,20 @@ export function SettingsScreen({ client, device }: Props) {
     [change, client, duid, load],
   );
 
+  // Diagnóstico: lee el estado CRUDO del robot y muestra los campos que deciden aspirar/fregar.
+  // Sirve para depurar el modo de limpieza pulsándolo mientras el robot limpia.
+  const verEstadoTecnico = useCallback(async () => {
+    try {
+      const raw = await client.getStatusRaw(duid);
+      const r = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+      const campos = ["state", "fan_power", "water_box_mode", "mop_mode", "in_cleaning", "water_shortage_status"];
+      const resumen = campos.map((k) => `${k}: ${r?.[k]}`).join("\n");
+      Alert.alert("Estado técnico", `${resumen}\n\nCompleto:\n${JSON.stringify(r)}`);
+    } catch (e) {
+      Alert.alert("Estado técnico", "No se pudo leer: " + (e as Error).message);
+    }
+  }, [client, duid]);
+
   // El botón de volver, el gesto de escape de VoiceOver, el foco y el sonido de cambio de
   // pantalla los da la cabecera NATIVA de la pila (configurada en App.tsx). Aquí no hay que
   // maquetar nada de eso.
@@ -244,6 +258,27 @@ export function SettingsScreen({ client, device }: Props) {
             <OptionPicker label="Intensidad de lavado de mopa" options={WASH_TOWEL_OPTIONS} value={s.washTowel} disabled={busy}
               onSelect={(c) => change("Lavado de mopa", { washTowel: c }, () => client.setWashTowelMode(duid, c))} />
           ) : null}
+
+          {/* Acciones manuales de la estación (arrancar ahora, no ajustes). */}
+          {caps.mopDrying ? (
+            <>
+              <AccessibleButton label="Secar mopa ahora" variant="secondary" busy={busy}
+                onPress={() => change("Secar mopa", {}, () => client.setDryerStatus(duid, true))} />
+              <AccessibleButton label="Parar secado" variant="secondary" busy={busy}
+                onPress={() => change("Parar secado", {}, () => client.setDryerStatus(duid, false))} />
+            </>
+          ) : null}
+          {caps.mopWashStation ? (
+            <>
+              <AccessibleButton label="Lavar mopa ahora" variant="secondary" busy={busy}
+                onPress={() => change("Lavar mopa", {}, () => client.startWash(duid))} />
+              <AccessibleButton label="Parar lavado" variant="secondary" busy={busy}
+                onPress={() => change("Parar lavado", {}, () => client.stopWash(duid))} />
+              <AccessibleButton label="Ir a la base a lavar la mopa" variant="secondary" busy={busy}
+                hint="El robot vuelve a la base, lava la mopa y se pone a cargar"
+                onPress={() => change("Ir a lavar la mopa", {}, () => client.washThenCharge(duid))} />
+            </>
+          ) : null}
         </View>
       ) : null}
 
@@ -290,6 +325,17 @@ export function SettingsScreen({ client, device }: Props) {
           ))}
         </View>
       ) : null}
+
+      {/* Diagnóstico */}
+      <View style={[styles.card, { backgroundColor: cardBg }]}>
+        <Text accessibilityRole="header" style={[styles.section, { color: textColor }]}>Diagnóstico</Text>
+        <Text style={[styles.consumable, { color: textColor }]}>
+          Para depurar el modo de limpieza. Pulsa mientras el robot esté limpiando y léeme los valores.
+        </Text>
+        <AccessibleButton label="Ver estado técnico" variant="secondary" busy={busy}
+          hint="Muestra los valores crudos del robot: succión, agua y fregado"
+          onPress={verEstadoTecnico} />
+      </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 

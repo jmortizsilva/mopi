@@ -6,9 +6,7 @@
  * "novedades"). Frases cortas, una por línea.
  */
 export const NOVEDADES = [
-  "El estado del robot se actualiza solo, sin tener que recargar a mano.",
-  "Las habitaciones salen con sus nombres reales, tambien en cuentas compartidas.",
-  "Navegacion nativa: sonidos y foco estandar al cambiar de pantalla, y volver con el gesto de VoiceOver.",
-  "Solo se muestran los controles compatibles con tu modelo de robot.",
-  "Aviso cuando hay una version nueva, con opcion de instalarla al momento.",
+  "Ahora puedes elegir varias habitaciones a la vez y limpiarlas juntas.",
+  "Nuevos botones para lavar o secar la mopa al momento, sin esperar a que termine.",
+  "En Configuracion hay un boton de estado tecnico para ayudarnos a depurar el modo de limpieza.",
 ].join("\n");

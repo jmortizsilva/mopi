@@ -344,6 +344,18 @@ export class RoborockClient {
   setDryerStatus(duid: string, on: boolean): Promise<unknown> {
     return this.sendCommand(duid, METHOD.SET_DRYER_STATUS, { params: [{ status: on ? 1 : 0 }] });
   }
+  /** Arrancar el lavado de la mopa ahora mismo (requiere estación de lavado). */
+  startWash(duid: string): Promise<unknown> {
+    return this.sendCommand(duid, METHOD.START_WASH);
+  }
+  /** Parar el lavado de la mopa. */
+  stopWash(duid: string): Promise<unknown> {
+    return this.sendCommand(duid, METHOD.STOP_WASH);
+  }
+  /** Enviar el robot a la base a lavar la mopa y cargar. */
+  washThenCharge(duid: string): Promise<unknown> {
+    return this.sendCommand(duid, METHOD.WASH_THEN_CHARGE);
+  }
   /** Auto-vaciado del depósito de polvo (encender/apagar). */
   setDustSwitch(duid: string, on: boolean): Promise<unknown> {
     return this.sendCommand(duid, METHOD.SET_DUST_SWITCH, { params: { status: on ? 1 : 0 } });

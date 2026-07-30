@@ -61,6 +61,9 @@ export const METHOD = {
   GET_DRYER_SETTING: "app_get_dryer_setting",
   SET_DRYER_SETTING: "app_set_dryer_setting",
   SET_DRYER_STATUS: "app_set_dryer_status", // arrancar/parar secado ahora
+  START_WASH: "app_start_wash", // arrancar lavado de mopa ahora
+  STOP_WASH: "app_stop_wash", // parar lavado de mopa
+  WASH_THEN_CHARGE: "start_wash_then_charge", // ir a la base, lavar la mopa y cargar
   GET_DUST_MODE: "get_dust_collection_mode",
   SET_DUST_MODE: "set_dust_collection_mode",
   GET_DUST_SWITCH: "get_dust_collection_switch_status",

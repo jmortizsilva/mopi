@@ -9,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { anunciar, anunciarImportante } from "../accesibilidad/anuncios";
 import { AccessibleButton } from "../ui/AccessibleButton";
+import { ToggleRow } from "../ui/ToggleRow";
 import type { RootStackParamList } from "../navigation";
 import { summarizeStatus, type Device, type DecodedStatus, type MappedRoom, type RoborockClient } from "../roborock";
 
@@ -31,6 +32,8 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [rooms, setRooms] = useState<MappedRoom[]>([]);
+  // Habitaciones marcadas para limpiar juntas (ids de segmento).
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   // Refs para el autorrefresco: evitar peticiones solapadas, no refrescar mientras hay una
   // acción en curso, y no re-renderizar el texto de estado si no ha cambiado.
@@ -153,6 +156,29 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
 
   const duid = device.duid;
 
+  const toggleRoom = useCallback((segmentId: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(segmentId)) next.delete(segmentId);
+      else next.add(segmentId);
+      return next;
+    });
+  }, []);
+
+  // Lanza la limpieza de todas las marcadas de una vez (app_segment_clean acepta varias).
+  const cleanSelected = useCallback(async () => {
+    const elegidas = rooms.filter((r) => selected.has(r.segmentId));
+    if (elegidas.length === 0) {
+      anunciar("Marca al menos una habitación primero.");
+      return;
+    }
+    const ids = elegidas.map((r) => r.segmentId);
+    const label =
+      elegidas.length === 1 ? `Limpiar ${elegidas[0].name}` : `Limpiar ${elegidas.length} habitaciones`;
+    await runAction(label, () => client.cleanSegments(duid, ids));
+    setSelected(new Set()); // desmarcar tras lanzar
+  }, [rooms, selected, runAction, client, duid]);
+
   return (
     // Home no lleva cabecera nativa (es la raíz), así que el borde superior seguro (notch) lo
     // pone este SafeAreaView.
@@ -190,18 +216,26 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
       {rooms.length > 0 ? (
         <View style={[styles.card, { backgroundColor: cardBg }]}>
           <Text accessibilityRole="header" style={[styles.sectionTitle, { color: textColor }]}>
-            Limpiar una habitación
+            Limpiar habitaciones
+          </Text>
+          <Text style={[styles.detail, { color: textColor }]}>
+            Marca las que quieras y pulsa "Limpiar seleccionadas".
           </Text>
           {rooms.map((room) => (
-            <AccessibleButton
+            <ToggleRow
               key={room.segmentId}
               label={`Limpiar ${room.name}`}
-              hint="Envía el robot a limpiar solo esta habitación"
-              variant="secondary"
-              busy={busy}
-              onPress={() => runAction(`Limpiar ${room.name}`, () => client.cleanSegments(duid, [room.segmentId]))}
+              value={selected.has(room.segmentId)}
+              disabled={busy}
+              onValueChange={() => toggleRoom(room.segmentId)}
             />
           ))}
+          <AccessibleButton
+            label={selected.size ? `Limpiar seleccionadas (${selected.size})` : "Limpiar seleccionadas"}
+            hint="Envía el robot a limpiar solo las habitaciones marcadas"
+            busy={busy}
+            onPress={cleanSelected}
+          />
         </View>
       ) : null}
 
