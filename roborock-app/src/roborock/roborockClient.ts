@@ -362,9 +362,12 @@ export class RoborockClient {
     // El GET devuelve un objeto → el SET envía el objeto directo (no envuelto en array).
     return this.sendCommand(duid, METHOD.SET_DRYER_SETTING, { params: obj });
   }
-  /** Arrancar (1) o parar (0) el secado de mopa ahora mismo. */
+  /**
+   * Arrancar (1) o parar (0) el secado de mopa ahora mismo. Objeto SIN envolver en array: con
+   * `[{status}]` el robot responde -10007 invalid params (como el resto de sets de objeto).
+   */
   setDryerStatus(duid: string, on: boolean): Promise<unknown> {
-    return this.sendCommand(duid, METHOD.SET_DRYER_STATUS, { params: [{ status: on ? 1 : 0 }] });
+    return this.sendCommand(duid, METHOD.SET_DRYER_STATUS, { params: { status: on ? 1 : 0 } });
   }
   /** Arrancar el lavado de la mopa ahora mismo (requiere estación de lavado). */
   startWash(duid: string): Promise<unknown> {
