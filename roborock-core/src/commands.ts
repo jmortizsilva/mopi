@@ -72,4 +72,21 @@ export const METHOD = {
   SET_SMART_WASH: "set_smart_wash_params",
   GET_WASH_TOWEL: "get_wash_towel_mode",
   SET_WASH_TOWEL: "set_wash_towel_mode",
+
+  // --- Funciones avanzadas (disponibilidad según modelo; se sondean con get_* antes de ofrecer) ---
+  GET_CLEAN_SEQUENCE: "get_clean_sequence", // orden de limpieza de habitaciones
+  SET_CLEAN_SEQUENCE: "set_clean_sequence",
+  GET_CUSTOMIZE_CLEAN_MODE: "get_customize_clean_mode", // modo por habitación
+  SET_CUSTOMIZE_CLEAN_MODE: "set_customize_clean_mode",
+  GET_RIGHT_BRUSH_STRETCH: "get_right_brush_stretch_status", // FlexiArm: mopa/cepillo se extiende a la pared
+  SET_RIGHT_BRUSH_STRETCH: "set_right_brush_stretch_status",
+  GET_STRETCH_TAG: "get_stretch_tag_status",
+  SET_STRETCH_TAG: "set_stretch_tag_status",
+  GET_PET_DEEP_CLEAN: "get_pet_supplies_deep_clean_status", // limpieza profunda en comederos
+  SET_PET_DEEP_CLEAN: "set_pet_supplies_deep_clean_status",
+  GET_GAP_DEEP_CLEAN: "get_gap_deep_clean_status", // limpieza profunda de esquinas/huecos
+  SET_GAP_DEEP_CLEAN: "set_gap_deep_clean_status",
+  GET_CARPET_DEEP_CLEAN: "app_get_carpet_deep_clean_status", // limpieza profunda de alfombra
+  SET_CARPET_DEEP_CLEAN: "app_set_carpet_deep_clean_status",
+  GET_CARPET_CLEAN_MODE: "get_carpet_clean_mode",
 } as const;

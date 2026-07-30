@@ -6,7 +6,6 @@
  * "novedades"). Frases cortas, una por línea.
  */
 export const NOVEDADES = [
-  "Modo de limpieza rehecho con los 3 modos reales: solo aspirar, aspirar y fregar, y solo fregar.",
-  "Cada modo ofrece solo las opciones validas (ruta rapida incluida; profundas solo en solo fregar).",
-  "Arreglado el boton de secar la mopa (daba error de parametros).",
+  "Nuevo boton en Diagnostico para sondear que funciones avanzadas admite tu robot.",
+  "Nos ayuda a decidir cuales anadir (orden de habitaciones, limpiezas profundas, etc.).",
 ].join("\n");

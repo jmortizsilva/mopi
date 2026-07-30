@@ -262,6 +262,22 @@ export function SettingsScreen({ client, device }: Props) {
     }
   }, []);
 
+  // Sondea las funciones avanzadas del robot (solo lectura) y comparte el resultado, para saber
+  // cuales admite este modelo antes de ofrecer sus controles.
+  const sondearAvanzadas = useCallback(async () => {
+    try {
+      const dump = await client.dumpAdvanced(duid);
+      const texto =
+        `=== Funciones avanzadas (${client.modelFor(duid) ?? "?"}) ===\n` +
+        Object.entries(dump)
+          .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+          .join("\n");
+      await Share.share({ message: texto });
+    } catch (e) {
+      Alert.alert("Sondeo", "No se pudo: " + (e as Error).message);
+    }
+  }, [client, duid]);
+
   // El botón de volver, el gesto de escape de VoiceOver, el foco y el sonido de cambio de
   // pantalla los da la cabecera NATIVA de la pila (configurada en App.tsx). Aquí no hay que
   // maquetar nada de eso.
@@ -419,6 +435,9 @@ export function SettingsScreen({ client, device }: Props) {
         <AccessibleButton label="Ver estado técnico" variant="secondary" busy={busy}
           hint="Muestra los valores crudos del robot: succión, agua y fregado"
           onPress={verEstadoTecnico} />
+        <AccessibleButton label="Sondear funciones avanzadas" variant="secondary" busy={busy}
+          hint="Lee qué funciones avanzadas admite tu robot y comparte el resultado"
+          onPress={sondearAvanzadas} />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

@@ -332,6 +332,33 @@ export class RoborockClient {
     return out;
   }
 
+  /**
+   * Sondeo de funciones AVANZADAS (orden de habitaciones, modo por habitación, FlexiArm, limpiezas
+   * profundas…). Solo lectura y tolerante a fallos: sirve para descubrir qué admite un modelo y en
+   * qué formato antes de ofrecer los controles. Un `{error}` = ese modelo no tiene la función.
+   */
+  async dumpAdvanced(duid: string): Promise<Record<string, unknown>> {
+    const reads: [string, string][] = [
+      ["clean_sequence", METHOD.GET_CLEAN_SEQUENCE],
+      ["customize_clean_mode", METHOD.GET_CUSTOMIZE_CLEAN_MODE],
+      ["right_brush_stretch", METHOD.GET_RIGHT_BRUSH_STRETCH],
+      ["stretch_tag", METHOD.GET_STRETCH_TAG],
+      ["pet_supplies_deep_clean", METHOD.GET_PET_DEEP_CLEAN],
+      ["gap_deep_clean", METHOD.GET_GAP_DEEP_CLEAN],
+      ["carpet_deep_clean", METHOD.GET_CARPET_DEEP_CLEAN],
+      ["carpet_clean_mode", METHOD.GET_CARPET_CLEAN_MODE],
+    ];
+    const out: Record<string, unknown> = {};
+    for (const [name, method] of reads) {
+      try {
+        out[name] = await this.sendCommand(duid, method);
+      } catch (e) {
+        out[name] = { error: (e as Error).message };
+      }
+    }
+    return out;
+  }
+
   // -------------------------------------------------------------------------
   // Ajustes (escritura). Formatos a confirmar con dumpSettings antes de usar en producción.
   // -------------------------------------------------------------------------
