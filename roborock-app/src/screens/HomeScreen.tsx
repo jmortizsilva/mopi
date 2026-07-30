@@ -9,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { anunciar, anunciarImportante } from "../accesibilidad/anuncios";
 import { AccessibleButton } from "../ui/AccessibleButton";
+import { OptionPicker } from "../ui/OptionPicker";
 import { ToggleRow } from "../ui/ToggleRow";
 import type { RootStackParamList } from "../navigation";
 import { summarizeStatus, type Device, type DecodedStatus, type MappedRoom, type RoborockClient } from "../roborock";
@@ -34,6 +35,8 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
   const [rooms, setRooms] = useState<MappedRoom[]>([]);
   // Habitaciones marcadas para limpiar juntas (ids de segmento).
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  // Número de pasadas por habitación (1 o 2).
+  const [repeat, setRepeat] = useState(1);
 
   // Refs para el autorrefresco: evitar peticiones solapadas, no refrescar mientras hay una
   // acción en curso, y no re-renderizar el texto de estado si no ha cambiado.
@@ -175,9 +178,9 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
     const ids = elegidas.map((r) => r.segmentId);
     const label =
       elegidas.length === 1 ? `Limpiar ${elegidas[0].name}` : `Limpiar ${elegidas.length} habitaciones`;
-    await runAction(label, () => client.cleanSegments(duid, ids));
+    await runAction(label, () => client.cleanSegments(duid, ids, repeat));
     setSelected(new Set()); // desmarcar tras lanzar
-  }, [rooms, selected, runAction, client, duid]);
+  }, [rooms, selected, repeat, runAction, client, duid]);
 
   return (
     // Home no lleva cabecera nativa (es la raíz), así que el borde superior seguro (notch) lo
@@ -230,6 +233,16 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
               onValueChange={() => toggleRoom(room.segmentId)}
             />
           ))}
+          <OptionPicker
+            label="Número de pasadas"
+            options={[
+              { code: 1, label: "1 vez" },
+              { code: 2, label: "2 veces" },
+            ]}
+            value={repeat}
+            disabled={busy}
+            onSelect={setRepeat}
+          />
           <AccessibleButton
             label={selected.size ? `Limpiar seleccionadas (${selected.size})` : "Limpiar seleccionadas"}
             hint="Envía el robot a limpiar solo las habitaciones marcadas"

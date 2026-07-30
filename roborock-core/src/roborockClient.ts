@@ -431,4 +431,27 @@ export class RoborockClient {
     obj.enable = on ? 1 : 0;
     return this.sendCommand(duid, METHOD.SET_CARPET_MODE, { params: [obj] });
   }
+
+  // --- Funciones avanzadas (interruptores {status}). Disponibilidad según modelo (sondear antes). ---
+  getStretchTag(duid: string): Promise<unknown> {
+    return this.sendCommand(duid, METHOD.GET_STRETCH_TAG);
+  }
+  /** Fregado extensivo: la mopa se estira hacia bordes y esquinas. */
+  setStretchTag(duid: string, on: boolean): Promise<unknown> {
+    return this.sendCommand(duid, METHOD.SET_STRETCH_TAG, { params: { status: on ? 1 : 0 } });
+  }
+  getPetDeepClean(duid: string): Promise<unknown> {
+    return this.sendCommand(duid, METHOD.GET_PET_DEEP_CLEAN);
+  }
+  /** Limpieza profunda alrededor de los comederos de mascotas. */
+  setPetDeepClean(duid: string, on: boolean): Promise<unknown> {
+    return this.sendCommand(duid, METHOD.SET_PET_DEEP_CLEAN, { params: { status: on ? 1 : 0 } });
+  }
+  getCarpetDeepClean(duid: string): Promise<unknown> {
+    return this.sendCommand(duid, METHOD.GET_CARPET_DEEP_CLEAN);
+  }
+  /** Limpieza profunda de alfombras. */
+  setCarpetDeepClean(duid: string, on: boolean): Promise<unknown> {
+    return this.sendCommand(duid, METHOD.SET_CARPET_DEEP_CLEAN, { params: { status: on ? 1 : 0 } });
+  }
 }

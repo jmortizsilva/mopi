@@ -67,9 +67,29 @@ interface UiSettings {
   mopAutoDry: boolean;
   dustSwitch: boolean;
   washTowel: number | null;
+  // Funciones avanzadas (interruptores). Solo se muestran si el modelo las admite.
+  stretchTag: boolean;
+  petDeepClean: boolean;
+  carpetDeepClean: boolean;
+}
+
+// Disponibilidad de las funciones avanzadas en este modelo (según el sondeo).
+interface AvanzadasDisponibles {
+  stretchTag: boolean;
+  petDeepClean: boolean;
+  carpetDeepClean: boolean;
 }
 
 const two = (n: number) => String(n).padStart(2, "0");
+
+/** Interpreta una respuesta de interruptor {status}: disponible si trae ese campo. */
+function leerStatus(v: unknown): { disponible: boolean; on: boolean } {
+  const o = Array.isArray(v) ? v[0] : v;
+  if (o && typeof o === "object" && "status" in (o as Record<string, unknown>)) {
+    return { disponible: true, on: (o as { status: unknown }).status === 1 };
+  }
+  return { disponible: false, on: false };
+}
 
 export function SettingsScreen({ client, device }: Props) {
   const dark = useColorScheme() === "dark";
@@ -85,6 +105,7 @@ export function SettingsScreen({ client, device }: Props) {
   // Capacidades del robot: se empieza sin nada y se resuelve al leer los ajustes, para no
   // construir controles de una función que este modelo no tiene (GUIA-ACCESIBILIDAD-RN.md §7).
   const [caps, setCaps] = useState<DeviceCapabilities>({ autoEmptyDock: false, mopDrying: false, mopWashStation: false });
+  const [adv, setAdv] = useState<AvanzadasDisponibles>({ stretchTag: false, petDeepClean: false, carpetDeepClean: false });
   const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Registro de pruebas: el estado real vive en el módulo (persiste entre pantallas); aquí solo
   // reflejamos si está activo para el botón. Al montar, leemos el estado actual.
@@ -94,10 +115,20 @@ export function SettingsScreen({ client, device }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [status, dump] = await Promise.all([client.getStatus(duid), client.dumpSettings(duid)]);
+      const [status, dump, stretch, pet, carpet] = await Promise.all([
+        client.getStatus(duid),
+        client.dumpSettings(duid),
+        client.getStretchTag(duid).catch(() => null),
+        client.getPetDeepClean(duid).catch(() => null),
+        client.getCarpetDeepClean(duid).catch(() => null),
+      ]);
       const g = (v: unknown) => (v && typeof v === "object" ? (v as any) : {});
       const arr0 = (v: unknown) => (Array.isArray(v) ? (v[0] as any) : g(v));
       const dnd = arr0(dump.dnd_timer);
+      const st = leerStatus(stretch);
+      const pt = leerStatus(pet);
+      const cp = leerStatus(carpet);
+      setAdv({ stretchTag: st.disponible, petDeepClean: pt.disponible, carpetDeepClean: cp.disponible });
       setS({
         fanPower: status.fanPower.code,
         waterBox: status.waterBox.code,
@@ -113,6 +144,9 @@ export function SettingsScreen({ client, device }: Props) {
         mopAutoDry: g(dump.dryer_setting).status === 1,
         dustSwitch: g(dump.dust_collection_switch).status === 1,
         washTowel: g(dump.wash_towel_mode).wash_mode ?? null,
+        stretchTag: st.on,
+        petDeepClean: pt.on,
+        carpetDeepClean: cp.on,
       });
       setConsumables(decodeConsumables(dump.consumables));
       setCaps(resolveCapabilities(client.modelFor(duid), dump));
@@ -362,6 +396,27 @@ export function SettingsScreen({ client, device }: Props) {
                 hint="El robot vuelve a la base, lava la mopa y se pone a cargar"
                 onPress={() => change("Ir a lavar la mopa", {}, () => client.washThenCharge(duid))} />
             </>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* Limpieza avanzada: solo lo que este modelo admite (detectado por sondeo). */}
+      {adv.stretchTag || adv.petDeepClean || adv.carpetDeepClean ? (
+        <View style={[styles.card, { backgroundColor: cardBg }]}>
+          <Text accessibilityRole="header" style={[styles.section, { color: textColor }]}>Limpieza avanzada</Text>
+          {adv.stretchTag ? (
+            <ToggleRow label="Fregado extensivo (bordes y esquinas)" value={s.stretchTag} disabled={busy}
+              hint="La mopa se extiende hacia la pared para limpiar bordes y esquinas"
+              onValueChange={(v) => change("Fregado extensivo", { stretchTag: v }, () => client.setStretchTag(duid, v))} />
+          ) : null}
+          {adv.petDeepClean ? (
+            <ToggleRow label="Limpieza profunda en comederos" value={s.petDeepClean} disabled={busy}
+              hint="Refuerza la limpieza alrededor de los comederos de mascotas"
+              onValueChange={(v) => change("Limpieza de comederos", { petDeepClean: v }, () => client.setPetDeepClean(duid, v))} />
+          ) : null}
+          {adv.carpetDeepClean ? (
+            <ToggleRow label="Limpieza profunda de alfombra" value={s.carpetDeepClean} disabled={busy}
+              onValueChange={(v) => change("Limpieza de alfombra", { carpetDeepClean: v }, () => client.setCarpetDeepClean(duid, v))} />
           ) : null}
         </View>
       ) : null}
