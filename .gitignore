@@ -23,3 +23,6 @@ web-build/
 .DS_Store
 Thumbs.db
 *.log
+
+# Registros de pruebas del robot (datos del hogar, repo publico)
+log_*.txt
