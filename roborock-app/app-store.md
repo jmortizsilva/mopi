@@ -8,7 +8,7 @@ App Store Connect, elige **Español (España)** como idioma principal.
 
 ## Datos básicos
 
-- **Nombre**: `Mopi`
+- **Nombre**: `Mopi - Aspiradora accesible`
 - **Subtítulo** (máx. 30 caracteres): `Tu robot Roborock, accesible`
 - **Categoría principal**: Utilidades (o Estilo de vida)
 - **Bundle ID**: `com.jmortiz.roborockaccesible`
@@ -71,19 +71,41 @@ Mopi es un controlador accesible (VoiceOver) para robots aspiradores Roborock. E
 sirve para probar el control básico y los ajustes en distintos modelos.
 ```
 
-- **Qué probar** (notas para testers):
+- **Qué probar** (notas para testers, campo "What to Test"):
 
 ```
-Necesitas una cuenta de Roborock con tu robot ya configurado en la app oficial.
+Necesitas una cuenta de Roborock con tu robot ya configurado en la app oficial (o compartido
+contigo desde otra cuenta).
 
+CÓMO EMPEZAR
 1. Entra con tu correo de Roborock; te llegará un código de 6 dígitos por email.
-2. Comprueba que aparece tu robot y su estado (batería, etc.).
-3. Prueba: empezar/parar limpieza, ir a la base y limpiar una habitación.
-4. Entra en Configuración y prueba a cambiar ajustes (succión, agua, secado, volumen…).
-   Pulsa "Recargar ajustes" para verificar que se guardan.
+2. Comprueba que aparece tu robot y su estado (batería, limpiando, en la base…).
 
-Dime tu MODELO de Roborock y si algo no funciona o no aparece. Con VoiceOver, cuéntame si
-algún control se lee mal o cuesta usar. ¡Gracias!
+QUÉ PROBAR
+• Estado: se actualiza solo cada pocos segundos, sin tener que pulsar nada. Compruébalo
+  dejando la pantalla abierta mientras el robot limpia o vuelve a la base.
+• Controles: empezar, pausar y parar la limpieza, ir a la base, localizar el robot (sonido).
+• Limpiar una habitación: deben salir los nombres reales de tu casa, no "Habitación 1, 2…".
+  Si el robot te lo ha compartido otra persona, también deberían verse SUS nombres.
+• Configuración: cambia succión, agua, secado, volumen… y pulsa "Recargar ajustes" para
+  comprobar que se han guardado. El botón para volver está arriba a la izquierda.
+• Según tu MODELO de robot, algunos controles (por ejemplo auto-vaciado de la base) no
+  deberían aparecer si tu robot no tiene esa función.
+
+SI USAS VOICEOVER (el motivo de ser de esta app)
+• En Configuración, prueba a volver atrás con el gesto de rascar con dos dedos, no solo
+  con el botón.
+• Al entrar o salir de Configuración, el foco debería quedar en un sitio con sentido (el
+  título al entrar, el botón "Configuración" al volver), no perderse por la pantalla.
+• Los avisos al empezar o terminar una acción (o un error) deberían oírse enteros, sin
+  cortarse por otro sonido o cambio de pantalla.
+• Cuéntame si algún control se lee mal, con una etiqueta rara, o cuesta activarlo.
+
+CÓMO AVISARME
+Abre una incidencia en GitHub con lo que ha pasado, tu MODELO de Roborock, la versión de
+iOS y si usabas VoiceOver: https://github.com/jmortizsilva/mopi/issues
+
+¡Gracias por probarla!
 ```
 
 ---
