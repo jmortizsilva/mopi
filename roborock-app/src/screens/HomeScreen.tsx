@@ -4,22 +4,24 @@
  * y se anuncian con prioridad alta los resultados de acción y las transiciones importantes.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, AppState, RefreshControl, ScrollView, StyleSheet, Text, useColorScheme, Vibration, View } from "react-native";
+import { AppState, RefreshControl, ScrollView, StyleSheet, Text, useColorScheme, Vibration, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { anunciar, anunciarImportante } from "../accesibilidad/anuncios";
 import { AccessibleButton } from "../ui/AccessibleButton";
-import { SettingsScreen } from "./SettingsScreen";
+import type { RootStackParamList } from "../navigation";
 import { summarizeStatus, type Device, type DecodedStatus, type MappedRoom, type RoborockClient } from "../roborock";
 
-interface Props {
+type Props = NativeStackScreenProps<RootStackParamList, "Home"> & {
   client: RoborockClient;
   device: Device;
   onLogout: () => void;
-}
+};
 
 // Cada cuánto se relee el estado en segundo plano (autorrefresco).
 const POLL_MS = 10000;
 
-export function HomeScreen({ client, device, onLogout }: Props) {
+export function HomeScreen({ navigation, client, device, onLogout }: Props) {
   const dark = useColorScheme() === "dark";
   const textColor = dark ? "#FFFFFF" : "#111111";
   const cardBg = dark ? "#1C1C1E" : "#F2F2F7";
@@ -29,7 +31,6 @@ export function HomeScreen({ client, device, onLogout }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [rooms, setRooms] = useState<MappedRoom[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
 
   // Refs para el autorrefresco: evitar peticiones solapadas, no refrescar mientras hay una
   // acción en curso, y no re-renderizar el texto de estado si no ha cambiado.
@@ -38,9 +39,6 @@ export function HomeScreen({ client, device, onLogout }: Props) {
   const lastText = useRef<string | null>(null);
   // Estado previo, para detectar transiciones que merecen voz (error nuevo, vuelta a la base).
   const prevStatus = useRef<DecodedStatus | null>(null);
-  // Foco: botón que abrió Configuración, para devolvérselo al volver (guía §3).
-  const settingsBtnRef = useRef<React.ComponentRef<typeof View>>(null);
-  const returningFromSettings = useRef(false);
   useEffect(() => {
     busyRef.current = busy;
   }, [busy]);
@@ -153,33 +151,12 @@ export function HomeScreen({ client, device, onLogout }: Props) {
     [refreshStatus],
   );
 
-  // Al volver de Configuración, devolver el foco al botón que la abrió (guía §3). El margen deja
-  // que la pantalla se monte antes de fijar el foco.
-  useEffect(() => {
-    if (showSettings || !returningFromSettings.current) return;
-    returningFromSettings.current = false;
-    const t = setTimeout(() => {
-      if (settingsBtnRef.current) AccessibilityInfo.sendAccessibilityEvent(settingsBtnRef.current, "focus");
-    }, 300);
-    return () => clearTimeout(t);
-  }, [showSettings]);
-
   const duid = device.duid;
 
-  if (showSettings) {
-    return (
-      <SettingsScreen
-        client={client}
-        device={device}
-        onBack={() => {
-          returningFromSettings.current = true;
-          setShowSettings(false);
-        }}
-      />
-    );
-  }
-
   return (
+    // Home no lleva cabecera nativa (es la raíz), así que el borde superior seguro (notch) lo
+    // pone este SafeAreaView.
+    <SafeAreaView style={styles.safe} edges={["top"]}>
     <ScrollView
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => refreshStatus()} />}
@@ -228,13 +205,15 @@ export function HomeScreen({ client, device, onLogout }: Props) {
         </View>
       ) : null}
 
-      <AccessibleButton ref={settingsBtnRef} label="Configuración" hint="Ajustes de succión, agua, secado, volumen y más" onPress={() => setShowSettings(true)} />
+      <AccessibleButton label="Configuración" hint="Ajustes de succión, agua, secado, volumen y más" onPress={() => navigation.navigate("Settings")} />
       <AccessibleButton label="Cerrar sesión" variant="danger" onPress={onLogout} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: { padding: 16, gap: 14 },
   title: { fontSize: 26, fontWeight: "700" },
   card: { borderRadius: 14, padding: 16 },

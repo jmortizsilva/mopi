@@ -4,8 +4,11 @@
  * de errores del robot.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, useColorScheme, Vibration, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, useColorScheme, Vibration, View } from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { anunciar, anunciarImportante } from "../accesibilidad/anuncios";
+import { comprobarActualizacion } from "../actualizaciones/ota";
+import type { RootStackParamList } from "../navigation";
 import {
   decodeConsumables,
   type DeviceCapabilities,
@@ -23,11 +26,10 @@ import { AdjustableStepper } from "../ui/AdjustableStepper";
 import { OptionPicker, type PickerOption } from "../ui/OptionPicker";
 import { ToggleRow } from "../ui/ToggleRow";
 
-interface Props {
+type Props = NativeStackScreenProps<RootStackParamList, "Settings"> & {
   client: RoborockClient;
   device: Device;
-  onBack: () => void;
-}
+};
 
 const WASH_TOWEL_OPTIONS: PickerOption[] = [
   { code: 0, label: "Ligero" },
@@ -64,11 +66,10 @@ interface UiSettings {
 
 const two = (n: number) => String(n).padStart(2, "0");
 
-export function SettingsScreen({ client, device, onBack }: Props) {
+export function SettingsScreen({ client, device }: Props) {
   const dark = useColorScheme() === "dark";
   const textColor = dark ? "#FFFFFF" : "#111111";
   const cardBg = dark ? "#1C1C1E" : "#F2F2F7";
-  const accent = dark ? "#0A84FF" : "#0A62C2";
   const duid = device.duid;
 
   const [loading, setLoading] = useState(true);
@@ -80,9 +81,6 @@ export function SettingsScreen({ client, device, onBack }: Props) {
   // construir controles de una función que este modelo no tiene (GUIA-ACCESIBILIDAD-RN.md §7).
   const [caps, setCaps] = useState<DeviceCapabilities>({ autoEmptyDock: false, mopDrying: false, mopWashStation: false });
   const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Foco al título al entrar (pantalla sin cabecera nativa, guía §3). Solo la primera vez.
-  const titleRef = useRef<React.ComponentRef<typeof Text>>(null);
-  const focusedTitle = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,18 +118,6 @@ export function SettingsScreen({ client, device, onBack }: Props) {
   useEffect(() => {
     load();
   }, [load]);
-
-  // Al terminar de cargar, fijar el foco en el título (la pantalla no tiene cabecera nativa que
-  // VoiceOver anuncie sola). sendAccessibilityEvent, porque setAccessibilityFocus no va en la
-  // arquitectura nueva.
-  useEffect(() => {
-    if (loading || !s || focusedTitle.current) return;
-    focusedTitle.current = true;
-    const t = setTimeout(() => {
-      if (titleRef.current) AccessibilityInfo.sendAccessibilityEvent(titleRef.current, "focus");
-    }, 300);
-    return () => clearTimeout(t);
-  }, [loading, s]);
 
   // Cambio optimista + comando + aviso/vibración + detección de error del robot.
   // `silent` evita el aviso de voz cuando el propio control ya lee su nuevo valor (ajustables),
@@ -209,44 +195,20 @@ export function SettingsScreen({ client, device, onBack }: Props) {
     [change, client, duid, load],
   );
 
-  // Cabecera estilo iOS: "Volver" arriba a la izquierda y primero en el orden de lectura.
-  // `onAccessibilityEscape` en la raíz atiende el gesto estándar de VoiceOver (rascar con dos
-  // dedos) para retroceder. Necesita `collapsable={false}`: con la arquitectura nueva (Fabric),
-  // una View que solo maqueta (sin más props nativas) se elimina de la jerarquía nativa como
-  // optimización, y el handler no llega a registrarse en ninguna vista real — el gesto no hace
-  // nada, sin dar error. `collapsable={false}` fuerza a que exista de verdad.
-  const header = (
-    <View style={styles.header}>
-      <Pressable
-        onPress={onBack}
-        accessibilityRole="button"
-        accessibilityLabel="Volver"
-        hitSlop={10}
-        style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.5 : 1 }]}
-      >
-        <Text style={[styles.backText, { color: accent }]}>‹ Volver</Text>
-      </Pressable>
-    </View>
-  );
-
+  // El botón de volver, el gesto de escape de VoiceOver, el foco y el sonido de cambio de
+  // pantalla los da la cabecera NATIVA de la pila (configurada en App.tsx). Aquí no hay que
+  // maquetar nada de eso.
   if (loading || !s) {
     return (
-      <View style={styles.root} collapsable={false} onAccessibilityEscape={onBack}>
-        {header}
-        <View style={styles.center}>
-          <ActivityIndicator size="large" />
-          <Text style={{ color: textColor, marginTop: 12 }}>Leyendo ajustes…</Text>
-        </View>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+        <Text style={{ color: textColor, marginTop: 12 }}>Leyendo ajustes…</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.root} collapsable={false} onAccessibilityEscape={onBack}>
-      {header}
-      <ScrollView contentContainerStyle={styles.container}>
-      <Text ref={titleRef} accessibilityRole="header" style={[styles.title, { color: textColor }]}>Configuración</Text>
-
+    <ScrollView contentContainerStyle={styles.container}>
       {/* Limpieza */}
       <View style={[styles.card, { backgroundColor: cardBg }]}>
         <Text accessibilityRole="header" style={[styles.section, { color: textColor }]}>Limpieza</Text>
@@ -329,22 +291,18 @@ export function SettingsScreen({ client, device, onBack }: Props) {
         </View>
       ) : null}
 
-      {error ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <AccessibleButton label="Recargar ajustes" variant="secondary" busy={busy} onPress={load} />
-      </ScrollView>
-    </View>
+      <AccessibleButton label="Recargar ajustes" variant="secondary" busy={busy} onPress={load} />
+      <AccessibleButton label="Buscar actualizaciones" variant="secondary" hint="Comprueba si hay una versión nueva de la app"
+        onPress={() => comprobarActualizacion(true)} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: { paddingHorizontal: 8, paddingTop: 4, paddingBottom: 2 },
-  backBtn: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 6 },
-  backText: { fontSize: 18, fontWeight: "600" },
   container: { padding: 16, gap: 14 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 26, fontWeight: "700" },
   card: { borderRadius: 14, padding: 16 },
   section: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
   consumableRow: { paddingVertical: 6 },

@@ -2,18 +2,26 @@
  * App — orquesta el flujo: cargando → login → casa.
  */
 import { StatusBar } from "expo-status-bar";
+import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, useColorScheme, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { HttpApi, RoborockClient, type Device, type Region } from "./src/roborock";
 import { HomeScreen } from "./src/screens/HomeScreen";
+import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
+import type { RootStackParamList } from "./src/navigation";
+import { useActualizacionesOTA } from "./src/actualizaciones/ota";
 import { clearSession, getClientId, loadEmail, loadSession, saveEmail, saveSession } from "./src/session";
 
 type Phase = "loading" | "login" | "home";
 
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
 export default function App() {
   const dark = useColorScheme() === "dark";
+  useActualizacionesOTA(); // avisa de versiones nuevas y aplica OTA con permiso del usuario
   const [phase, setPhase] = useState<Phase>("loading");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +103,28 @@ export default function App() {
   };
 
   const bg = dark ? "#000000" : "#FFFFFF";
+  const client = clientRef.current;
+
+  // Fase "home": pila NATIVA (Home ↔ Configuración). Las pantallas nativas dan el sonido, el
+  // háptico y el foco estándar del sistema al navegar, el botón atrás y el gesto de escape de
+  // VoiceOver, sin apaños. Login y "cargando" van fuera de la pila (no necesitan ir atrás).
+  if (phase === "home" && device && client) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style={dark ? "light" : "dark"} />
+        <NavigationContainer theme={dark ? DarkTheme : DefaultTheme}>
+          <Stack.Navigator screenOptions={{ headerBackButtonDisplayMode: "default", headerBackTitle: "Volver" }}>
+            <Stack.Screen name="Home" options={{ headerShown: false }}>
+              {(props) => <HomeScreen {...props} client={client} device={device} onLogout={handleLogout} />}
+            </Stack.Screen>
+            <Stack.Screen name="Settings" options={{ title: "Configuración" }}>
+              {(props) => <SettingsScreen {...props} client={client} device={device} />}
+            </Stack.Screen>
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>
@@ -105,11 +135,9 @@ export default function App() {
             <ActivityIndicator size="large" />
             <Text style={[styles.loadingText, { color: dark ? "#FFF" : "#111" }]}>Conectando…</Text>
           </View>
-        ) : phase === "login" ? (
+        ) : (
           <LoginScreen onRequestCode={handleRequestCode} onSubmitCode={handleSubmitCode} busy={busy} error={error} />
-        ) : device && clientRef.current ? (
-          <HomeScreen client={clientRef.current} device={device} onLogout={handleLogout} />
-        ) : null}
+        )}
       </SafeAreaView>
     </SafeAreaProvider>
   );
