@@ -6,6 +6,7 @@
  * "novedades"). Frases cortas, una por línea.
  */
 export const NOVEDADES = [
-  "Navegacion nativa: sonidos y foco estandar al cambiar de pantalla, como el resto del sistema.",
-  "Aviso cuando hay una version nueva, con opcion de instalarla al momento.",
+  "Prueba del sistema de actualizaciones: si ves este mensaje, el aviso, la descarga y la",
+  "instalacion por aire funcionan de principio a fin. En la proxima version pondremos aqui",
+  "las novedades de verdad.",
 ].join("\n");
