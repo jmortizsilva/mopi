@@ -12,8 +12,10 @@ import type { RootStackParamList } from "../navigation";
 import {
   decodeConsumables,
   type DeviceCapabilities,
+  FAN_MAX_PLUS,
   firstNumber,
   resolveCapabilities,
+  succionCompatibleConFregado,
   type Consumable,
   type Device,
   FAN_POWER_OPTIONS,
@@ -46,6 +48,7 @@ const MODE_OPTIONS: PickerOption[] = [
   { code: MODE_VAC_MOP, label: "Aspirar y fregar" },
   { code: MODE_VACUUM, label: "Solo aspirar" },
 ];
+
 
 interface UiSettings {
   fanPower: number | null;
@@ -164,9 +167,10 @@ export function SettingsScreen({ client, device }: Props) {
       if (code === MODE_VACUUM) {
         change("Modo solo aspirar", { waterBox: 200 }, () => client.setWaterBox(duid, 200));
       } else {
-        const fixFan = s.fanPower === 105 || s.fanPower === 109;
-        change("Modo aspirar y fregar", { waterBox: water, ...(fixFan ? { fanPower: 102 } : {}) }, async () => {
-          if (fixFan) await client.setFanPower(duid, 102);
+        // Al fregar, la succión debe ser compatible (Máximo+ no vale → baja a Máximo).
+        const nuevaFan = succionCompatibleConFregado(s.fanPower);
+        change("Modo aspirar y fregar", { waterBox: water, ...(nuevaFan != null ? { fanPower: nuevaFan } : {}) }, async () => {
+          if (nuevaFan != null) await client.setFanPower(duid, nuevaFan);
           await client.setWaterBox(duid, water);
         });
       }
@@ -221,6 +225,10 @@ export function SettingsScreen({ client, device }: Props) {
     );
   }
 
+  // Fregando (agua != apagado), Máximo+ no está disponible: se quita de la lista de succión.
+  const mopping = s.waterBox !== 200;
+  const fanOptions = mopping ? FAN_POWER_OPTIONS.filter((o) => o.code !== FAN_MAX_PLUS) : FAN_POWER_OPTIONS;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Limpieza */}
@@ -233,8 +241,11 @@ export function SettingsScreen({ client, device }: Props) {
           disabled={busy}
           onSelect={selectMode}
         />
-        <OptionPicker label="Potencia de aspirado" options={FAN_POWER_OPTIONS} value={s.fanPower} disabled={busy}
+        <OptionPicker label="Potencia de aspirado" options={fanOptions} value={s.fanPower} disabled={busy}
           onSelect={(c) => change("Potencia de aspirado", { fanPower: c }, () => client.setFanPower(duid, c))} />
+        {mopping ? (
+          <Text style={[styles.nota, { color: textColor }]}>Máximo+ solo está disponible aspirando sin fregar.</Text>
+        ) : null}
         <OptionPicker label="Nivel de agua" options={WATER_BOX_OPTIONS} value={s.waterBox} disabled={busy}
           onSelect={(c) => change("Nivel de agua", { waterBox: c }, () => client.setWaterBox(duid, c))} />
         <OptionPicker label="Modo de fregado" options={MOP_MODE_OPTIONS} value={s.mopMode} disabled={busy}
@@ -353,5 +364,6 @@ const styles = StyleSheet.create({
   section: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
   consumableRow: { paddingVertical: 6 },
   consumable: { fontSize: 16, marginBottom: 2 },
+  nota: { fontSize: 14, opacity: 0.8, marginTop: 2, marginBottom: 4 },
   error: { color: "#B00020", fontSize: 16, fontWeight: "600" },
 });

@@ -8,5 +8,5 @@
 export const NOVEDADES = [
   "Ahora puedes elegir varias habitaciones a la vez y limpiarlas juntas.",
   "Nuevos botones para lavar o secar la mopa al momento, sin esperar a que termine.",
-  "En Configuracion hay un boton de estado tecnico para ayudarnos a depurar el modo de limpieza.",
+  "Arreglado el modo aspirar y fregar: Maximo+ solo se ofrece aspirando sin fregar (el robot no lo mantiene con la mopa).",
 ].join("\n");

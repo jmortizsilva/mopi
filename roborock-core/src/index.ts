@@ -11,3 +11,4 @@ export * from "./statusDecoder";
 export * from "./settingsDecoder";
 export * from "./commands";
 export * from "./capabilities";
+export * from "./limpieza";
