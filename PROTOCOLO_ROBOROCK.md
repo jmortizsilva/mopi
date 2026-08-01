@@ -359,7 +359,7 @@ publish(`rr/m/i/${rriot.u}/${mqttUser}/${duid}`, frameBinario, { qos: 1 });
 > En los Qrevo (vacuum+mop), `app_segment_clean` tiene matices para elegir aspirar vs. fregar;
 > contrasta parámetros con `python-roborock` y con logs reales de tu robot.
 
-### 8.3 Modos de limpieza del a170 (deducido de logs reales del robot)
+### 8.2 Modos de limpieza del a170 (deducido de logs reales del robot)
 
 El "modo" no es un campo único: sale de la combinación de `fan_power` + `water_box_mode`,
 y el robot los acopla:
@@ -380,7 +380,7 @@ y el robot los acopla:
 - **`app_set_dryer_status`** (secar mopa ahora) va con `{status:1}` **sin** envolver en array
   (con `[{...}]` responde `-10007 invalid params`).
 
-### 8.4 `seq_type`: "fregar tras aspirar" — se lee, pero NO se sabe escribir
+### 8.3 `seq_type`: "fregar tras aspirar" — se lee, pero NO se sabe escribir
 
 En `get_status`, el campo **`seq_type`** indica el orden de limpieza:
 - `seq_type: 0` → aspirar y fregar **a la vez**.
@@ -393,7 +393,43 @@ oficial lo pone por la **nube** de Roborock con un comando no documentado que no
 sin interceptar su tráfico. Alternativa práctica sin ese comando: **orquestar dos pasadas** desde la
 app (solo aspirar → esperar dock → solo fregar).
 
-### 8.2 Comandos B01 (solo si tu robot resultara ser B01)
+### 8.4 Capacidades por "feature flags" (autodetección, como Home Assistant)
+
+Cada modelo publica un **string hex de capacidades**. Viene en el home data del dispositivo
+(`newFeatureSet`) y también en `app_get_init_status` (`new_feature_info_str`, `new_feature_info`,
+`feature_info`). Decodificando bits/máscaras se sabe qué admite el aparato **sin sondear comando a
+comando**. Es el mecanismo de la integración de Roborock para Home Assistant (`python-roborock`,
+`device_features.py`, Apache-2.0). Reglas de decodificación:
+
+- máscara sobre entero: `mask & new_feature_info`.
+- máscara sobre el entero de los **últimos 8 hex**: `mask & int(str[-8:], 16)`.
+- bit dentro del string: carácter `str[-(1 + bit//4)]`, bit interno `bit % 4`.
+- pertenencia en lista: `id in feature_info`.
+
+**Del a170 (Qrevo S5V), capturado y validado contra el sondeo por comando:**
+
+```
+newFeatureSet = "00000050282834C952BA8F587EDEFFFE"
+feature_info  = [111..125]
+```
+
+| Rasgo | bit/máscara | a170 |
+| :--- | :--- | :--- |
+| Ruta rápida (304) | strMask 256 | ✅ |
+| Ruta profundo+ (303) | strMask 16777216 | ❌ (no ofrecer 303) |
+| Alfombra profunda | strMask 8 | ✅ |
+| Patrón/dirección de suelo | strMask 2048 | ✅ |
+| Comederos (pet) | bit 43 | ✅ |
+| Huecos/esquinas (gap) | bit 63 | ❌ |
+| Mopa esquinas (stretch) | bit 40 | ✅ (= `stretch_tag`, el "fregado extensivo") |
+| FlexiArm cepillo derecho | bit 54 | ❌ |
+| Aspirar y luego fregar | bit 93 | ✅ (soporta; el setter de `seq_type` sigue sin conocerse) |
+| Modo por habitación | bit 47 | ✅ |
+
+Validación: los flags decodificados coincidieron 1:1 con el sondeo por comando (`pet` sí, `gap`
+no, `right_brush` no, `carpet` sí, `stretch` sí). Es la fuente principal de "qué mostrar".
+
+### 8.5 Comandos B01 (solo si tu robot resultara ser B01)
 Control por propiedades: `prop.set { wind:1-5, water:1-3, mode:0/1/2, child_lock:0/1 }`,
 acciones vía `prop.set { status: N }` (start=1, stop=2, pause=10, charge=6) y `service.*`.
 

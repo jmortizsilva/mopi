@@ -16,6 +16,7 @@ import {
   type DeviceCapabilities,
   detectarModo,
   entradaFeatures,
+  type RasgosDispositivo,
   FAN_POWER_LABELS,
   firstNumber,
   MODOS,
@@ -108,6 +109,8 @@ export function SettingsScreen({ client, device }: Props) {
   // construir controles de una función que este modelo no tiene (GUIA-ACCESIBILIDAD-RN.md §7).
   const [caps, setCaps] = useState<DeviceCapabilities>({ autoEmptyDock: false, mopDrying: false, mopWashStation: false });
   const [adv, setAdv] = useState<AvanzadasDisponibles>({ stretchTag: false, petDeepClean: false, carpetDeepClean: false });
+  // Capacidades del modelo por feature flags (home data), fuente principal de qué mostrar.
+  const [rasgos, setRasgos] = useState<RasgosDispositivo | null>(null);
   const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Registro de pruebas: el estado real vive en el módulo (persiste entre pantallas); aquí solo
   // reflejamos si está activo para el botón. Al montar, leemos el estado actual.
@@ -130,7 +133,15 @@ export function SettingsScreen({ client, device }: Props) {
       const st = leerStatus(stretch);
       const pt = leerStatus(pet);
       const cp = leerStatus(carpet);
-      setAdv({ stretchTag: st.disponible, petDeepClean: pt.disponible, carpetDeepClean: cp.disponible });
+      // Disponibilidad por feature flags del modelo (validado contra el sondeo por comando).
+      // El string viene en el home data → no cuesta ninguna llamada extra.
+      const flags = decodeFeatures(entradaFeatures(device.newFeatureSet));
+      setRasgos(flags);
+      setAdv({
+        stretchTag: flags.cornerMopStretch,
+        petDeepClean: flags.petDeepClean,
+        carpetDeepClean: flags.carpetDeepClean,
+      });
       setS({
         fanPower: status.fanPower.code,
         waterBox: status.waterBox.code,
@@ -345,7 +356,12 @@ export function SettingsScreen({ client, device }: Props) {
   const modo = detectarModo(s.fanPower, s.waterBox);
   const opc = opcionesModo(modo);
   const fanOptions = opcionesDe(opc.fanCodes, FAN_POWER_LABELS);
-  const rutaOptions = opcionesDe(opc.rutaCodes, MOP_MODE_LABELS);
+  // Rutas de fregado según lo que el modelo admite (flags): 304 Rápido y 303 Profundo+ se ofrecen
+  // solo si el robot los soporta. 300 Estándar y 301 Profundo se mantienen (301 confirmado en log).
+  const rutaCodes = opc.rutaCodes.filter(
+    (c) => (c !== 304 || rasgos?.fastRoute !== false) && (c !== 303 || rasgos?.deepPlusRoute === true),
+  );
+  const rutaOptions = opcionesDe(rutaCodes, MOP_MODE_LABELS);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
