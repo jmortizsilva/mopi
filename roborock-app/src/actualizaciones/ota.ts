@@ -14,26 +14,39 @@ import { Alert, AppState } from "react-native";
 import * as Updates from "expo-updates";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { anunciar, anunciarImportante } from "../accesibilidad/anuncios";
-import { NOVEDADES } from "./novedades";
+import { CHANGELOG_VERSION, notasNuevas } from "./novedades";
 
-const LAST_SEEN_KEY = "ota_last_seen_update_id";
+// Versión del changelog ya vista por el usuario (entero). Sustituye al viejo id de update, que
+// solo permitía mostrar las novedades de la ÚLTIMA versión al saltar varias de golpe.
+const SEEN_VERSION_KEY = "ota_last_seen_changelog_v";
+const LEGACY_UPDATE_ID_KEY = "ota_last_seen_update_id"; // clave antigua, para migrar sin perder aviso
 
 /**
- * Tras aplicar una actualización, muestra las novedades una única vez. Compara el id del update
- * en marcha con el último visto (guardado en el dispositivo). En la primera instalación solo
- * memoriza el id, sin avisar (no hay "novedades" que contar todavía).
+ * Muestra TODAS las novedades desde la última versión que vio el usuario (no solo la última).
+ * Guarda la versión del changelog ya vista; al abrir con un bundle más nuevo, enseña todo lo
+ * acumulado entre medias. Migración: un usuario que venía de la versión antigua ve solo la entrada
+ * más reciente una vez; una instalación nueva no ve nada (no hay historial que contarle).
  */
 async function mostrarNovedadesSiActualizado(): Promise<void> {
-  if (!Updates.isEnabled || !Updates.updateId) return;
+  if (!Updates.isEnabled) return;
   try {
-    const actual = Updates.updateId;
-    const visto = await AsyncStorage.getItem(LAST_SEEN_KEY);
-    if (visto === actual) return;
-    await AsyncStorage.setItem(LAST_SEEN_KEY, actual);
-    if (visto === null) return; // primera vez: nada que contar
-    Alert.alert("App actualizada", `Novedades:\n\n${NOVEDADES}`, [{ text: "Entendido" }]);
+    const guardada = await AsyncStorage.getItem(SEEN_VERSION_KEY);
+    let vistaV: number;
+    if (guardada !== null) {
+      vistaV = parseInt(guardada, 10) || 0;
+    } else {
+      // Sin la clave nueva: si existía la antigua, es un usuario que actualiza → mostrarle solo la
+      // entrada más reciente. Si no, es instalación nueva → no mostrar nada.
+      const veníaDeAntes = (await AsyncStorage.getItem(LEGACY_UPDATE_ID_KEY)) !== null;
+      vistaV = veníaDeAntes ? CHANGELOG_VERSION - 1 : CHANGELOG_VERSION;
+    }
+    const notas = notasNuevas(vistaV);
+    await AsyncStorage.setItem(SEEN_VERSION_KEY, String(CHANGELOG_VERSION));
+    if (notas.length === 0) return;
+    const cuerpo = notas.map((n) => `• ${n}`).join("\n");
+    Alert.alert("App actualizada", `Novedades:\n\n${cuerpo}`, [{ text: "Entendido" }]);
   } catch {
-    // Fallo leyendo/escribiendo el id: no es crítico, se ignora.
+    // Fallo leyendo/escribiendo: no es crítico, se ignora.
   }
 }
 
