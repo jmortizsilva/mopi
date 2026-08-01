@@ -13,22 +13,14 @@ import type { RootStackParamList } from "../navigation";
 import {
   decodeConsumables,
   decodeFeatures,
+  type DecodedStatus,
   type DeviceCapabilities,
-  detectarModo,
   entradaFeatures,
-  type RasgosDispositivo,
-  FAN_POWER_LABELS,
   firstNumber,
-  MODOS,
-  type ModoLimpieza,
-  MOP_MODE_LABELS,
-  opcionesModo,
-  planCambioModo,
   resolveCapabilities,
   type Consumable,
   type Device,
   type RoborockClient,
-  WATER_BOX_OPTIONS,
 } from "../roborock";
 import { AccessibleButton } from "../ui/AccessibleButton";
 import { AdjustableStepper } from "../ui/AdjustableStepper";
@@ -46,19 +38,8 @@ const WASH_TOWEL_OPTIONS: PickerOption[] = [
   { code: 2, label: "Profundo" },
 ];
 
-// Modo de limpieza: los 3 modos reales del a170. El OptionPicker usa el índice como código.
-const MODO_ORDEN: ModoLimpieza[] = MODOS.map((m) => m.modo);
-const MODE_OPTIONS: PickerOption[] = MODOS.map((m, i) => ({ code: i, label: m.label }));
-
-/** Construye opciones {code,label} para el selector a partir de una lista de códigos y su tabla. */
-const opcionesDe = (codes: number[], labels: Record<number, string>): PickerOption[] =>
-  codes.map((code) => ({ code, label: labels[code] ?? `Código ${code}` }));
-
 
 interface UiSettings {
-  fanPower: number | null;
-  waterBox: number | null;
-  mopMode: number | null;
   volume: number;
   dndEnabled: boolean;
   dndStartHour: number;
@@ -109,8 +90,8 @@ export function SettingsScreen({ client, device }: Props) {
   // construir controles de una función que este modelo no tiene (GUIA-ACCESIBILIDAD-RN.md §7).
   const [caps, setCaps] = useState<DeviceCapabilities>({ autoEmptyDock: false, mopDrying: false, mopWashStation: false });
   const [adv, setAdv] = useState<AvanzadasDisponibles>({ stretchTag: false, petDeepClean: false, carpetDeepClean: false });
-  // Capacidades del modelo por feature flags (home data), fuente principal de qué mostrar.
-  const [rasgos, setRasgos] = useState<RasgosDispositivo | null>(null);
+  // Estado del robot al cargar, para deshabilitar acciones de estación que no apliquen.
+  const [estado, setEstado] = useState<DecodedStatus | null>(null);
   const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Registro de pruebas: el estado real vive en el módulo (persiste entre pantallas); aquí solo
   // reflejamos si está activo para el botón. Al montar, leemos el estado actual.
@@ -136,16 +117,13 @@ export function SettingsScreen({ client, device }: Props) {
       // Disponibilidad por feature flags del modelo (validado contra el sondeo por comando).
       // El string viene en el home data → no cuesta ninguna llamada extra.
       const flags = decodeFeatures(entradaFeatures(device.newFeatureSet));
-      setRasgos(flags);
+      setEstado(status);
       setAdv({
         stretchTag: flags.cornerMopStretch,
         petDeepClean: flags.petDeepClean,
         carpetDeepClean: flags.carpetDeepClean,
       });
       setS({
-        fanPower: status.fanPower.code,
-        waterBox: status.waterBox.code,
-        mopMode: status.mopMode.code,
         volume: firstNumber(dump.sound_volume) ?? 100,
         dndEnabled: dnd?.enabled === 1,
         dndStartHour: dnd?.start_hour ?? 22,
@@ -178,12 +156,7 @@ export function SettingsScreen({ client, device }: Props) {
   // `silent` evita el aviso de voz cuando el propio control ya lee su nuevo valor (ajustables),
   // para no decirlo dos veces (guía §2). Los errores se anuncian siempre.
   const change = useCallback(
-    async (
-      label: string,
-      patch: Partial<UiSettings>,
-      action: () => Promise<unknown>,
-      opts?: { silent?: boolean; reconcile?: boolean },
-    ) => {
+    async (label: string, patch: Partial<UiSettings>, action: () => Promise<unknown>, opts?: { silent?: boolean }) => {
       if (Object.keys(patch).length) setS((prev) => (prev ? { ...prev, ...patch } : prev));
       setBusy(true);
       if (!opts?.silent) anunciar(`${label}…`);
@@ -194,22 +167,7 @@ export function SettingsScreen({ client, device }: Props) {
           throw new Error(typeof err === "string" ? err : JSON.stringify(err));
         }
         Vibration.vibrate(60);
-        // Verificación en caliente: releer el estado y reflejar lo que el robot MANTUVO de verdad
-        // (algunas combinaciones no las conserva: Máximo+ al fregar, ruta profunda que baja la
-        // succión…). Si difiere de lo pedido, se avisa y la interfaz muestra el valor real.
-        if (opts?.reconcile) {
-          await new Promise((r) => setTimeout(r, 700)); // dar tiempo a que el robot lo aplique
-          const st = await client.getStatus(duid);
-          setS((prev) => (prev ? { ...prev, fanPower: st.fanPower.code, waterBox: st.waterBox.code, mopMode: st.mopMode.code } : prev));
-          const avisos: string[] = [];
-          if (patch.fanPower != null && st.fanPower.code !== patch.fanPower) avisos.push(`succión: ${st.fanPower.label}`);
-          if (patch.waterBox != null && st.waterBox.code !== patch.waterBox) avisos.push(`agua: ${st.waterBox.label}`);
-          if (patch.mopMode != null && st.mopMode.code !== patch.mopMode) avisos.push(`fregado: ${st.mopMode.label}`);
-          if (avisos.length) anunciarImportante(`El robot lo dejó en ${avisos.join(", ")}.`);
-          else if (!opts?.silent) anunciarImportante(`${label}: hecho`);
-        } else if (!opts?.silent) {
-          anunciarImportante(`${label}: hecho`);
-        }
+        if (!opts?.silent) anunciarImportante(`${label}: hecho`);
       } catch (e) {
         Vibration.vibrate([0, 120, 80, 120]);
         anunciarImportante(`${label}: error`);
@@ -218,7 +176,7 @@ export function SettingsScreen({ client, device }: Props) {
         setBusy(false);
       }
     },
-    [client, duid],
+    [],
   );
 
   const onVolumeChange = useCallback(
@@ -229,32 +187,6 @@ export function SettingsScreen({ client, device }: Props) {
       volTimer.current = setTimeout(() => change("Volumen", {}, () => client.setVolume(duid, v), { silent: true }), 500);
     },
     [change, client, duid],
-  );
-
-  // Modo de limpieza: cada modo se traduce a la combinación de agua + succión que el a170
-  // codifica de verdad (ver planCambioModo). El robot puede reajustar (ruta profunda ⟺ succión
-  // mínima); la verificación en caliente lo refleja.
-  const selectMode = useCallback(
-    (index: number) => {
-      if (!s) return;
-      const modo = MODO_ORDEN[index];
-      const plan = planCambioModo(modo, s.waterBox, s.fanPower);
-      const label = MODOS[index].label;
-      const patch: Partial<UiSettings> = {};
-      if (plan.waterBox != null) patch.waterBox = plan.waterBox;
-      if (plan.fanPower != null) patch.fanPower = plan.fanPower;
-      change(
-        `Modo ${label}`,
-        patch,
-        async () => {
-          // Succión primero: en el a170, fijar la succión resetea la ruta de fregado a estándar.
-          if (plan.fanPower != null) await client.setFanPower(duid, plan.fanPower);
-          if (plan.waterBox != null) await client.setWaterBox(duid, plan.waterBox);
-        },
-        { reconcile: true },
-      );
-    },
-    [s, change, client, duid],
   );
 
   const confirmReset = useCallback(
@@ -352,45 +284,17 @@ export function SettingsScreen({ client, device }: Props) {
     );
   }
 
-  // Modo actual (detectado del estado) y qué controles/opciones ofrece.
-  const modo = detectarModo(s.fanPower, s.waterBox);
-  const opc = opcionesModo(modo);
-  const fanOptions = opcionesDe(opc.fanCodes, FAN_POWER_LABELS);
-  // Rutas de fregado según lo que el modelo admite (flags): 304 Rápido y 303 Profundo+ se ofrecen
-  // solo si el robot los soporta. 300 Estándar y 301 Profundo se mantienen (301 confirmado en log).
-  const rutaCodes = opc.rutaCodes.filter(
-    (c) => (c !== 304 || rasgos?.fastRoute !== false) && (c !== 303 || rasgos?.deepPlusRoute === true),
-  );
-  const rutaOptions = opcionesDe(rutaCodes, MOP_MODE_LABELS);
+  // Acciones de estación deshabilitadas si no aplican al estado actual (permisivo si se desconoce).
+  const enBase = estado?.charging ?? false;
+  const secando = estado?.drying ?? false;
+  const lavando = estado?.washing ?? false;
+  const puedeSecar = estado ? enBase && !secando : true;
+  const puedeLavar = estado ? enBase && !lavando : true;
+  const puedeIrLavar = estado ? !enBase : true;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Limpieza */}
-      <View style={[styles.card, { backgroundColor: cardBg }]}>
-        <Text accessibilityRole="header" style={[styles.section, { color: textColor }]}>Limpieza</Text>
-        <OptionPicker
-          label="Modo de limpieza"
-          options={MODE_OPTIONS}
-          value={MODO_ORDEN.indexOf(modo)}
-          disabled={busy}
-          onSelect={selectMode}
-        />
-        {opc.mostrarSuccion ? (
-          <OptionPicker label="Potencia de aspirado" options={fanOptions} value={s.fanPower} disabled={busy}
-            onSelect={(c) => change("Potencia de aspirado", { fanPower: c }, () => client.setFanPower(duid, c), { reconcile: true })} />
-        ) : null}
-        {opc.succionFija ? (
-          <Text style={[styles.nota, { color: textColor }]}>En "solo fregar" la succión es mínima (la fija el robot).</Text>
-        ) : null}
-        {opc.mostrarAgua ? (
-          <OptionPicker label="Nivel de agua" options={WATER_BOX_OPTIONS} value={s.waterBox} disabled={busy}
-            onSelect={(c) => change("Nivel de agua", { waterBox: c }, () => client.setWaterBox(duid, c), { reconcile: true })} />
-        ) : null}
-        {opc.mostrarRuta ? (
-          <OptionPicker label="Modo de fregado" options={rutaOptions} value={s.mopMode} disabled={busy}
-            onSelect={(c) => change("Modo de fregado", { mopMode: c }, () => client.setMopMode(duid, c), { reconcile: true })} />
-        ) : null}
-      </View>
+      {/* La sección "Limpieza" (modo, succión, agua, ruta) está ahora en la pantalla de Inicio. */}
 
       {/* Estación (base): solo se construye lo que este modelo tiene de verdad. */}
       {caps.mopDrying || caps.autoEmptyDock || caps.mopWashStation ? (
@@ -410,22 +314,24 @@ export function SettingsScreen({ client, device }: Props) {
               onSelect={(c) => change("Lavado de mopa", { washTowel: c }, () => client.setWashTowelMode(duid, c))} />
           ) : null}
 
-          {/* Acciones manuales de la estación (arrancar ahora, no ajustes). */}
+          {/* Acciones manuales de la estación (arrancar ahora): deshabilitadas si no aplican al
+              estado actual (p. ej. secar/lavar requieren estar en la base; "ir a lavar" no si ya
+              está en la base). */}
           {caps.mopDrying ? (
             <>
-              <AccessibleButton label="Secar mopa ahora" variant="secondary" busy={busy}
+              <AccessibleButton label="Secar mopa ahora" variant="secondary" busy={busy} disabled={!puedeSecar}
                 onPress={() => change("Secar mopa", {}, () => client.setDryerStatus(duid, true))} />
-              <AccessibleButton label="Parar secado" variant="secondary" busy={busy}
+              <AccessibleButton label="Parar secado" variant="secondary" busy={busy} disabled={!secando}
                 onPress={() => change("Parar secado", {}, () => client.setDryerStatus(duid, false))} />
             </>
           ) : null}
           {caps.mopWashStation ? (
             <>
-              <AccessibleButton label="Lavar mopa ahora" variant="secondary" busy={busy}
+              <AccessibleButton label="Lavar mopa ahora" variant="secondary" busy={busy} disabled={!puedeLavar}
                 onPress={() => change("Lavar mopa", {}, () => client.startWash(duid))} />
-              <AccessibleButton label="Parar lavado" variant="secondary" busy={busy}
+              <AccessibleButton label="Parar lavado" variant="secondary" busy={busy} disabled={!lavando}
                 onPress={() => change("Parar lavado", {}, () => client.stopWash(duid))} />
-              <AccessibleButton label="Ir a la base a lavar la mopa" variant="secondary" busy={busy}
+              <AccessibleButton label="Ir a la base a lavar la mopa" variant="secondary" busy={busy} disabled={!puedeIrLavar}
                 hint="El robot vuelve a la base, lava la mopa y se pone a cargar"
                 onPress={() => change("Ir a lavar la mopa", {}, () => client.washThenCharge(duid))} />
             </>

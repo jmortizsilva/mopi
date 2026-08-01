@@ -9,7 +9,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { anunciar, anunciarImportante } from "../accesibilidad/anuncios";
 import { AccessibleButton } from "../ui/AccessibleButton";
-import { OptionPicker } from "../ui/OptionPicker";
+import { AdjustableOpciones } from "../ui/AdjustableOpciones";
+import { LimpiezaAjustes } from "../ui/LimpiezaAjustes";
 import { ToggleRow } from "../ui/ToggleRow";
 import type { RootStackParamList } from "../navigation";
 import { controlesSegunEstado, summarizeStatus, type Device, type DecodedStatus, type MappedRoom, type RoborockClient } from "../roborock";
@@ -170,18 +171,18 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
     });
   }, []);
 
-  // Lanza la limpieza de todas las marcadas de una vez (app_segment_clean acepta varias).
-  const cleanSelected = useCallback(async () => {
+  // "Empezar limpieza" contextual: si hay habitaciones marcadas limpia solo esas (con las pasadas
+  // elegidas); si no hay ninguna, limpia toda la casa (app_start, siempre 1 pasada).
+  const empezar = useCallback(async () => {
     const elegidas = rooms.filter((r) => selected.has(r.segmentId));
-    if (elegidas.length === 0) {
-      anunciar("Marca al menos una habitación primero.");
-      return;
+    if (elegidas.length > 0) {
+      const ids = elegidas.map((r) => r.segmentId);
+      const label = elegidas.length === 1 ? `Limpiar ${elegidas[0].name}` : `Limpiar ${elegidas.length} habitaciones`;
+      await runAction(label, () => client.cleanSegments(duid, ids, repeat));
+      setSelected(new Set()); // desmarcar tras lanzar
+    } else {
+      await runAction("Empezar limpieza", () => client.startCleaning(duid));
     }
-    const ids = elegidas.map((r) => r.segmentId);
-    const label =
-      elegidas.length === 1 ? `Limpiar ${elegidas[0].name}` : `Limpiar ${elegidas.length} habitaciones`;
-    await runAction(label, () => client.cleanSegments(duid, ids, repeat));
-    setSelected(new Set()); // desmarcar tras lanzar
   }, [rooms, selected, repeat, runAction, client, duid]);
 
   return (
@@ -206,11 +207,52 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
         <Text style={[styles.statusText, { color: textColor }]}>{statusText}</Text>
       </View>
 
+      {/* Modo de limpieza y sus opciones (succión, agua, ruta), con ajustables. */}
+      <LimpiezaAjustes client={client} device={device} />
+
+      {/* Dónde limpiar: si no marcas ninguna habitación, se limpia toda la casa. */}
+      {rooms.length > 0 ? (
+        <View style={[styles.card, { backgroundColor: cardBg }]}>
+          <Text accessibilityRole="header" style={[styles.sectionTitle, { color: textColor }]}>
+            Dónde limpiar
+          </Text>
+          <Text style={[styles.detail, { color: textColor }]}>
+            Marca habitaciones para limpiar solo esas. Si no marcas ninguna, se limpia toda la casa.
+          </Text>
+          {rooms.map((room) => (
+            <ToggleRow
+              key={room.segmentId}
+              label={room.name}
+              value={selected.has(room.segmentId)}
+              disabled={busy}
+              onValueChange={() => toggleRoom(room.segmentId)}
+            />
+          ))}
+          <AdjustableOpciones
+            label="Número de pasadas"
+            options={[
+              { code: 1, label: "1 vez" },
+              { code: 2, label: "2 veces" },
+            ]}
+            value={repeat}
+            disabled={busy || selected.size === 0}
+            hint="Solo al limpiar habitaciones marcadas"
+            onChange={setRepeat}
+          />
+        </View>
+      ) : null}
+
       <View style={[styles.card, { backgroundColor: cardBg }]}>
         <Text accessibilityRole="header" style={[styles.sectionTitle, { color: textColor }]}>
           Controles
         </Text>
-        <AccessibleButton label="Empezar limpieza" busy={busy} disabled={!ctrl.empezar} onPress={() => runAction("Empezar limpieza", () => client.startCleaning(duid))} />
+        <AccessibleButton
+          label={selected.size ? `Empezar limpieza (${selected.size} habitaciones)` : "Empezar limpieza"}
+          hint="Limpia las habitaciones marcadas, o toda la casa si no hay ninguna"
+          busy={busy}
+          disabled={!ctrl.empezar}
+          onPress={empezar}
+        />
         <AccessibleButton label="Pausar" variant="secondary" busy={busy} disabled={!ctrl.pausar} onPress={() => runAction("Pausar", () => client.pause(duid))} />
         <AccessibleButton label="Parar" variant="secondary" busy={busy} disabled={!ctrl.parar} onPress={() => runAction("Parar", () => client.stopCleaning(duid))} />
         <AccessibleButton label="Volver a la base" busy={busy} disabled={!ctrl.dock} onPress={() => runAction("Volver a la base", () => client.dock(duid))} />
@@ -218,43 +260,7 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
         <AccessibleButton label="Actualizar estado" variant="secondary" busy={busy} onPress={() => refreshStatus()} />
       </View>
 
-      {rooms.length > 0 ? (
-        <View style={[styles.card, { backgroundColor: cardBg }]}>
-          <Text accessibilityRole="header" style={[styles.sectionTitle, { color: textColor }]}>
-            Limpiar habitaciones
-          </Text>
-          <Text style={[styles.detail, { color: textColor }]}>
-            Marca las que quieras y pulsa "Limpiar seleccionadas".
-          </Text>
-          {rooms.map((room) => (
-            <ToggleRow
-              key={room.segmentId}
-              label={`Limpiar ${room.name}`}
-              value={selected.has(room.segmentId)}
-              disabled={busy}
-              onValueChange={() => toggleRoom(room.segmentId)}
-            />
-          ))}
-          <OptionPicker
-            label="Número de pasadas"
-            options={[
-              { code: 1, label: "1 vez" },
-              { code: 2, label: "2 veces" },
-            ]}
-            value={repeat}
-            disabled={busy}
-            onSelect={setRepeat}
-          />
-          <AccessibleButton
-            label={selected.size ? `Limpiar seleccionadas (${selected.size})` : "Limpiar seleccionadas"}
-            hint="Envía el robot a limpiar solo las habitaciones marcadas"
-            busy={busy}
-            onPress={cleanSelected}
-          />
-        </View>
-      ) : null}
-
-      <AccessibleButton label="Configuración" hint="Ajustes de succión, agua, secado, volumen y más" onPress={() => navigation.navigate("Settings")} />
+      <AccessibleButton label="Configuración" hint="Estación, volumen, no molestar y más" onPress={() => navigation.navigate("Settings")} />
       <AccessibleButton label="Cerrar sesión" variant="danger" onPress={onLogout} />
     </ScrollView>
     </SafeAreaView>

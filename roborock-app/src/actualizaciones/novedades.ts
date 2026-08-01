@@ -66,6 +66,14 @@ export const CHANGELOG: EntradaChangelog[] = [
       "Al actualizar verás todas las novedades desde la última vez que abriste la app, no solo las de la última versión.",
     ],
   },
+  {
+    v: 9,
+    notas: [
+      "En Inicio ahora eliges el modo de limpieza y sus opciones con ajustables (deslizando arriba/abajo).",
+      "Marcas dónde limpiar justo antes de los controles; sin nada marcado, limpia toda la casa.",
+      "Configuración se queda solo con los ajustes de fondo (la parte de limpieza está en Inicio).",
+    ],
+  },
 ];
 
 /** Versión más alta del changelog incluida en este bundle. */
