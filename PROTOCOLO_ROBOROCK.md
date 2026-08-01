@@ -359,6 +359,40 @@ publish(`rr/m/i/${rriot.u}/${mqttUser}/${duid}`, frameBinario, { qos: 1 });
 > En los Qrevo (vacuum+mop), `app_segment_clean` tiene matices para elegir aspirar vs. fregar;
 > contrasta parámetros con `python-roborock` y con logs reales de tu robot.
 
+### 8.3 Modos de limpieza del a170 (deducido de logs reales del robot)
+
+El "modo" no es un campo único: sale de la combinación de `fan_power` + `water_box_mode`,
+y el robot los acopla:
+
+| Modo | `fan_power` | `water_box_mode` | `mop_mode` (ruta) |
+| :--- | :--- | :--- | :--- |
+| Solo aspirar | 101-104, **108 (Máximo+)** | 200 (apagada) | — |
+| Aspirar y fregar | 101-104 (sin 108) | 201-203 | 300 estándar, 304 rápido |
+| Solo fregar | **105 (Suave = mínima)** | 201-203 | 300, 304, 301 profunda, 303 profunda+ |
+
+- **`fan_power = 105`** es el modo "solo fregar" (succión mínima), no una potencia normal.
+- **Ruta profunda (301/303) y succión real son excluyentes**: `set_mop_mode 301` fuerza `fan_power`
+  a 105; poner `set_custom_mode` a un nivel real resetea `mop_mode` a 300.
+- **Máximo+ (108) solo aspirando sin mopa**: con agua encendida el robot no lo mantiene.
+- Interruptores avanzados **según modelo** (sondear con su `get_*`; `"unknown_method"` = no lo tiene).
+  El a170 SÍ: `stretch_tag` (fregado extensivo), `pet_supplies_deep_clean`, `carpet_deep_clean`.
+  El a170 NO: `right_brush_stretch`, `gap_deep_clean`. Todos son `{status:0/1}` (objeto sin envolver).
+- **`app_set_dryer_status`** (secar mopa ahora) va con `{status:1}` **sin** envolver en array
+  (con `[{...}]` responde `-10007 invalid params`).
+
+### 8.4 `seq_type`: "fregar tras aspirar" — se lee, pero NO se sabe escribir
+
+En `get_status`, el campo **`seq_type`** indica el orden de limpieza:
+- `seq_type: 0` → aspirar y fregar **a la vez**.
+- `seq_type: 1` → **aspirar todo y luego fregar** (pasada de aspirado, vuelta a la base, y pasada
+  de fregado).
+
+⚠️ **Cómo FIJARLO es un problema abierto.** La comunidad (Home Assistant) probó `set_clean_sequence`,
+`app_set_dynamic_config`, `app_segment_clean`, `set_clean_motor_mode`… y el robot los ignora. La app
+oficial lo pone por la **nube** de Roborock con un comando no documentado que no se puede observar
+sin interceptar su tráfico. Alternativa práctica sin ese comando: **orquestar dos pasadas** desde la
+app (solo aspirar → esperar dock → solo fregar).
+
 ### 8.2 Comandos B01 (solo si tu robot resultara ser B01)
 Control por propiedades: `prop.set { wind:1-5, water:1-3, mode:0/1/2, child_lock:0/1 }`,
 acciones vía `prop.set { status: N }` (start=1, stop=2, pause=10, charge=6) y `service.*`.
