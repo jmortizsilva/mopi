@@ -89,4 +89,5 @@ export const METHOD = {
   GET_CARPET_DEEP_CLEAN: "app_get_carpet_deep_clean_status", // limpieza profunda de alfombra
   SET_CARPET_DEEP_CLEAN: "app_set_carpet_deep_clean_status",
   GET_CARPET_CLEAN_MODE: "get_carpet_clean_mode",
+  GET_INIT_STATUS: "app_get_init_status", // capacidades del modelo (feature flags)
 } as const;

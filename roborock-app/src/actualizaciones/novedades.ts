@@ -6,6 +6,6 @@
  * "novedades"). Frases cortas, una por línea.
  */
 export const NOVEDADES = [
-  "Limpieza avanzada: fregado extensivo, limpieza profunda de comederos y de alfombra (los que tu robot tenga).",
-  "Al limpiar habitaciones puedes elegir 1 o 2 pasadas.",
+  "Mejor deteccion de lo que admite tu robot (leyendo sus capacidades, como Home Assistant).",
+  "El sondeo de Diagnostico ahora incluye esa info para seguir afinando.",
 ].join("\n");

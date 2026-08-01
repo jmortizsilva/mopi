@@ -271,6 +271,10 @@ export class RoborockClient {
   // Ajustes / configuración (lectura). Seguros: no mueven el robot.
   // -------------------------------------------------------------------------
 
+  /** Capacidades del modelo (feature flags). Se decodifican con deviceFeatures. */
+  getInitStatus(duid: string): Promise<unknown> {
+    return this.sendCommand(duid, METHOD.GET_INIT_STATUS);
+  }
   getVolume(duid: string): Promise<unknown> {
     return this.sendCommand(duid, METHOD.GET_SOUND_VOLUME);
   }

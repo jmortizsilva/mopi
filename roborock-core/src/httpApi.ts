@@ -40,6 +40,9 @@ export interface Device {
   online: boolean;
   pv: string; // versión de protocolo: "1.0", "A01", "B01", ...
   sn?: string;
+  // Cadenas de capacidades del modelo (vienen en el home data). Se decodifican en deviceFeatures.
+  featureSet?: string;
+  newFeatureSet?: string;
 }
 
 export interface Product {
