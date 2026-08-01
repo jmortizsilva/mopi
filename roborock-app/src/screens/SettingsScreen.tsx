@@ -12,8 +12,10 @@ import { estaGrabando, finalizarPrueba, iniciarPrueba } from "../registro/log";
 import type { RootStackParamList } from "../navigation";
 import {
   decodeConsumables,
+  decodeFeatures,
   type DeviceCapabilities,
   detectarModo,
+  entradaFeatures,
   FAN_POWER_LABELS,
   firstNumber,
   MODOS,
@@ -300,9 +302,24 @@ export function SettingsScreen({ client, device }: Props) {
   // cuales admite este modelo antes de ofrecer sus controles.
   const sondearAvanzadas = useCallback(async () => {
     try {
-      const dump = await client.dumpAdvanced(duid);
+      const [dump, initStatus] = await Promise.all([
+        client.dumpAdvanced(duid),
+        client.getInitStatus(duid).catch((e) => ({ error: (e as Error).message })),
+      ]);
+      // Feature flags: fuente principal de capacidades (como Home Assistant). Se decodifican del
+      // string del home data y/o del init_status, para validar contra el sondeo por comando.
+      const entrada = entradaFeatures(device.newFeatureSet, initStatus);
+      const rasgos = decodeFeatures(entrada);
       const texto =
         `=== Funciones avanzadas (${client.modelFor(duid) ?? "?"}) ===\n` +
+        `newFeatureSet: ${device.newFeatureSet ?? "(no en home data)"}\n` +
+        `featureSet: ${device.featureSet ?? "(no en home data)"}\n` +
+        `app_get_init_status: ${JSON.stringify(initStatus)}\n` +
+        `--- flags decodificados ---\n` +
+        Object.entries(rasgos)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join("\n") +
+        `\n--- sondeo por comando ---\n` +
         Object.entries(dump)
           .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
           .join("\n");
@@ -310,7 +327,7 @@ export function SettingsScreen({ client, device }: Props) {
     } catch (e) {
       Alert.alert("Sondeo", "No se pudo: " + (e as Error).message);
     }
-  }, [client, duid]);
+  }, [client, duid, device.newFeatureSet, device.featureSet]);
 
   // El botón de volver, el gesto de escape de VoiceOver, el foco y el sonido de cambio de
   // pantalla los da la cabecera NATIVA de la pila (configurada en App.tsx). Aquí no hay que
