@@ -6,6 +6,5 @@
  * "novedades"). Frases cortas, una por línea.
  */
 export const NOVEDADES = [
-  "La app ahora lee las capacidades reales de tu robot y muestra solo lo que admite.",
-  "Se ajustan las rutas de fregado a las que tu modelo soporta de verdad.",
+  "Los controles de Inicio se deshabilitan cuando no aplican (p. ej. Pausar/Parar mientras carga en la base).",
 ].join("\n");

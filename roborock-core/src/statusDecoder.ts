@@ -212,6 +212,30 @@ export function decodeStatus(input: RawStatus | RawStatus[] | unknown): DecodedS
   };
 }
 
+/** Qué controles principales tienen sentido según el estado actual del robot. Pura → testable. */
+export interface ControlesEstado {
+  empezar: boolean; // empezar o reanudar limpieza
+  pausar: boolean;
+  parar: boolean;
+  dock: boolean; // volver a la base
+}
+
+/**
+ * Decide qué controles habilitar. Con estado desconocido (null) es permisivo (todo habilitado)
+ * para no dejar al usuario sin salida. Nunca deshabilita "parar" mientras hay algo en marcha.
+ */
+export function controlesSegunEstado(d: DecodedStatus | null): ControlesEstado {
+  if (!d) return { empezar: true, pausar: true, parar: true, dock: true };
+  const pausado = d.state.code === 10;
+  const enMarcha = (d.cleaning || d.returning) && !pausado;
+  return {
+    empezar: pausado || (!d.cleaning && !d.returning), // reanudar, o empezar si está parado
+    pausar: enMarcha,
+    parar: enMarcha || pausado,
+    dock: !d.charging && !d.returning, // ir a la base si no está ya cargando ni volviendo
+  };
+}
+
 /** Frase corta y clara, pensada para leerse con lector de pantalla. */
 /**
  * Resumen accesible del ESTADO (no de la configuración). Incluye estado general, batería,

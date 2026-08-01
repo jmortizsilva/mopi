@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeStatus, summarizeStatus } from "./statusDecoder";
+import { controlesSegunEstado, decodeStatus, summarizeStatus } from "./statusDecoder";
 
 // Fixture REAL capturado del Qrevo S5V (roborock.vacuum.a170, pv 1.0).
 const REAL_STATUS = [
@@ -79,5 +79,36 @@ describe("decodeStatus con la respuesta real del Qrevo S5V", () => {
     expect(d.hasError).toBe(true);
     expect(d.error.label).toBe("Rueda en el aire");
     expect(d.state.label).toBe("Error");
+  });
+});
+
+describe("controlesSegunEstado", () => {
+  const mk = (over: Record<string, unknown>) => decodeStatus([{ state: 3, battery: 50, ...over }]);
+
+  it("estado desconocido (null): permisivo, todo habilitado", () => {
+    expect(controlesSegunEstado(null)).toEqual({ empezar: true, pausar: true, parar: true, dock: true });
+  });
+
+  it("cargando en la base: solo empezar (no pausar/parar/dock)", () => {
+    const c = controlesSegunEstado(mk({ state: 8, charge_status: 1 }));
+    expect(c).toEqual({ empezar: true, pausar: false, parar: false, dock: false });
+  });
+
+  it("limpiando: pausar, parar y dock; empezar no", () => {
+    const c = controlesSegunEstado(mk({ state: 5, in_cleaning: 1 }));
+    expect(c).toEqual({ empezar: false, pausar: true, parar: true, dock: true });
+  });
+
+  it("en pausa: reanudar (empezar) y parar; pausar no", () => {
+    const c = controlesSegunEstado(mk({ state: 10, in_cleaning: 1 }));
+    expect(c.empezar).toBe(true);
+    expect(c.pausar).toBe(false);
+    expect(c.parar).toBe(true);
+  });
+
+  it("volviendo a la base: no se ofrece dock otra vez", () => {
+    const c = controlesSegunEstado(mk({ state: 6, in_returning: 1 }));
+    expect(c.dock).toBe(false);
+    expect(c.parar).toBe(true);
   });
 });

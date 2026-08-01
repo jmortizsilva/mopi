@@ -12,7 +12,7 @@ import { AccessibleButton } from "../ui/AccessibleButton";
 import { OptionPicker } from "../ui/OptionPicker";
 import { ToggleRow } from "../ui/ToggleRow";
 import type { RootStackParamList } from "../navigation";
-import { summarizeStatus, type Device, type DecodedStatus, type MappedRoom, type RoborockClient } from "../roborock";
+import { controlesSegunEstado, summarizeStatus, type Device, type DecodedStatus, type MappedRoom, type RoborockClient } from "../roborock";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home"> & {
   client: RoborockClient;
@@ -158,6 +158,8 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
   );
 
   const duid = device.duid;
+  // Qué controles tienen sentido ahora mismo (p. ej. no "Pausar" si está cargando en la base).
+  const ctrl = controlesSegunEstado(status);
 
   const toggleRoom = useCallback((segmentId: number) => {
     setSelected((prev) => {
@@ -208,10 +210,10 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
         <Text accessibilityRole="header" style={[styles.sectionTitle, { color: textColor }]}>
           Controles
         </Text>
-        <AccessibleButton label="Empezar limpieza" busy={busy} onPress={() => runAction("Empezar limpieza", () => client.startCleaning(duid))} />
-        <AccessibleButton label="Pausar" variant="secondary" busy={busy} onPress={() => runAction("Pausar", () => client.pause(duid))} />
-        <AccessibleButton label="Parar" variant="secondary" busy={busy} onPress={() => runAction("Parar", () => client.stopCleaning(duid))} />
-        <AccessibleButton label="Volver a la base" busy={busy} onPress={() => runAction("Volver a la base", () => client.dock(duid))} />
+        <AccessibleButton label="Empezar limpieza" busy={busy} disabled={!ctrl.empezar} onPress={() => runAction("Empezar limpieza", () => client.startCleaning(duid))} />
+        <AccessibleButton label="Pausar" variant="secondary" busy={busy} disabled={!ctrl.pausar} onPress={() => runAction("Pausar", () => client.pause(duid))} />
+        <AccessibleButton label="Parar" variant="secondary" busy={busy} disabled={!ctrl.parar} onPress={() => runAction("Parar", () => client.stopCleaning(duid))} />
+        <AccessibleButton label="Volver a la base" busy={busy} disabled={!ctrl.dock} onPress={() => runAction("Volver a la base", () => client.dock(duid))} />
         <AccessibleButton label="Localizar robot (sonido)" variant="secondary" busy={busy} onPress={() => runAction("Localizar", () => client.findMe(duid))} />
         <AccessibleButton label="Actualizar estado" variant="secondary" busy={busy} onPress={() => refreshStatus()} />
       </View>
