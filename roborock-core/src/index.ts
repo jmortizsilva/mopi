@@ -13,3 +13,4 @@ export * from "./commands";
 export * from "./capabilities";
 export * from "./limpieza";
 export * from "./deviceFeatures";
+export * from "./cleanHistory";

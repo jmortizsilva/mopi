@@ -74,6 +74,12 @@ export const CHANGELOG: EntradaChangelog[] = [
       "Configuración se queda solo con los ajustes de fondo (la parte de limpieza está en Inicio).",
     ],
   },
+  {
+    v: 10,
+    notas: [
+      "Nuevo botón 'Historial de limpieza' en Inicio: ves las limpiezas anteriores y los totales.",
+    ],
+  },
 ];
 
 /** Versión más alta del changelog incluida en este bundle. */

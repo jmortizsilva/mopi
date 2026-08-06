@@ -19,6 +19,7 @@ import { buildV1Request, parseV1Response, PROTO_RPC_RESPONSE, RawFrame } from ".
 import { PendingRequests } from "./pendingRequests";
 import { METHOD } from "./commands";
 import { DecodedStatus, decodeStatus } from "./statusDecoder";
+import { decodeCleanRecord, decodeCleanSummary, RegistroLimpieza, ResumenLimpieza } from "./cleanHistory";
 
 export interface SendCommandOptions {
   params?: unknown;
@@ -265,6 +266,23 @@ export class RoborockClient {
   /** Reinicia un consumible (p. ej. "main_brush_work_time") al cambiarlo por uno nuevo. */
   resetConsumable(duid: string, key: string): Promise<unknown> {
     return this.sendCommand(duid, METHOD.RESET_CONSUMABLE, { params: [key] });
+  }
+
+  /**
+   * Historial de limpieza: totales + las últimas `max` limpiezas ya decodificadas. Lee el resumen
+   * (ids) y luego el detalle de cada id. Los registros que fallen se descartan.
+   */
+  async getCleanHistory(duid: string, max = 20): Promise<{ resumen: ResumenLimpieza; limpiezas: RegistroLimpieza[] }> {
+    const resumen = decodeCleanSummary(await this.sendCommand(duid, METHOD.CLEAN_SUMMARY, { timeoutMs: 15000 }));
+    const ids = resumen.ids.slice(0, max);
+    const registros = await Promise.all(
+      ids.map((id) =>
+        this.sendCommand(duid, METHOD.CLEAN_RECORD, { params: [id] })
+          .then(decodeCleanRecord)
+          .catch(() => null),
+      ),
+    );
+    return { resumen, limpiezas: registros.filter((r): r is RegistroLimpieza => r != null) };
   }
 
   // -------------------------------------------------------------------------

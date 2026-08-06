@@ -41,6 +41,7 @@ export const METHOD = {
   CONSUMABLE: "get_consumable",
   RESET_CONSUMABLE: "reset_consumable",
   CLEAN_SUMMARY: "get_clean_summary",
+  CLEAN_RECORD: "get_clean_record", // detalle de una limpieza por su id
 
   // --- Ajustes / configuración ---
   GET_CUSTOM_MODE: "get_custom_mode", // potencia succión actual

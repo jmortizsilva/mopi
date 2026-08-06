@@ -10,6 +10,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { HttpApi, RoborockClient, type Device, type Region } from "./src/roborock";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { HistorialScreen } from "./src/screens/HistorialScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import type { RootStackParamList } from "./src/navigation";
 import { useActualizacionesOTA } from "./src/actualizaciones/ota";
@@ -121,6 +122,9 @@ export default function App() {
             </Stack.Screen>
             <Stack.Screen name="Settings" options={{ title: "Configuración" }}>
               {(props) => <SettingsScreen {...props} client={client} device={device} />}
+            </Stack.Screen>
+            <Stack.Screen name="Historial" options={{ title: "Historial de limpieza" }}>
+              {(props) => <HistorialScreen {...props} client={client} device={device} />}
             </Stack.Screen>
           </Stack.Navigator>
         </NavigationContainer>
