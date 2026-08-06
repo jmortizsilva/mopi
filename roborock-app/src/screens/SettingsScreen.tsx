@@ -253,6 +253,12 @@ export function SettingsScreen({ client, device }: Props) {
       // string del home data y/o del init_status, para validar contra el sondeo por comando.
       const entrada = entradaFeatures(device.newFeatureSet, initStatus);
       const rasgos = decodeFeatures(entrada);
+      // Historial crudo (para depurar el formato de get_clean_summary / get_clean_record).
+      const summaryRaw = await client.sendCommand(duid, "get_clean_summary").catch((e) => ({ error: (e as Error).message }));
+      let recordRaw: unknown = "(sin ids)";
+      const flat = JSON.stringify(summaryRaw);
+      const primerId = (flat.match(/\b(\d{9,})\b/) || [])[1];
+      if (primerId) recordRaw = await client.sendCommand(duid, "get_clean_record", { params: [Number(primerId)] }).catch((e) => ({ error: (e as Error).message }));
       const texto =
         `=== Funciones avanzadas (${client.modelFor(duid) ?? "?"}) ===\n` +
         `newFeatureSet: ${device.newFeatureSet ?? "(no en home data)"}\n` +
@@ -265,7 +271,10 @@ export function SettingsScreen({ client, device }: Props) {
         `\n--- sondeo por comando ---\n` +
         Object.entries(dump)
           .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
-          .join("\n");
+          .join("\n") +
+        `\n--- historial (crudo) ---\n` +
+        `get_clean_summary: ${flat}\n` +
+        `get_clean_record: ${JSON.stringify(recordRaw)}`;
       await Share.share({ message: texto });
     } catch (e) {
       Alert.alert("Sondeo", "No se pudo: " + (e as Error).message);

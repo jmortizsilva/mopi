@@ -25,17 +25,31 @@ export interface RegistroLimpieza {
 const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const mm2aM2 = (v: unknown): number => Math.round((num(v) / 1_000_000) * 100) / 100;
 
-/** Resumen: array `[tiempo, area, cuenta, [ids]]` u objeto `{clean_time, clean_area, clean_count, records}`. */
+/** Primer array formado solo por números (los ids de limpieza pueden venir bajo distintas claves). */
+function primerArrayDeNumeros(valores: unknown[]): number[] {
+  const arr = valores.find((v) => Array.isArray(v) && (v as unknown[]).every((x) => typeof x === "number"));
+  return arr ? (arr as unknown[]).map(num) : [];
+}
+
+/**
+ * Resumen: array `[tiempo, area, cuenta, [ids]]` u objeto `{clean_time, clean_area, clean_count,
+ * records}`. Los ids se buscan donde estén (no se fía de un índice/clave fijos, que cambian entre
+ * firmwares).
+ */
 export function decodeCleanSummary(input: unknown): ResumenLimpieza {
   const raw = Array.isArray(input) && input.length === 1 && typeof input[0] === "object" ? input[0] : input;
 
   if (Array.isArray(raw)) {
-    const ids = Array.isArray(raw[3]) ? (raw[3] as unknown[]).map(num) : [];
-    return { totalDuracionSeg: num(raw[0]), totalAreaM2: mm2aM2(raw[1]), totalLimpiezas: num(raw[2]), ids };
+    return {
+      totalDuracionSeg: num(raw[0]),
+      totalAreaM2: mm2aM2(raw[1]),
+      totalLimpiezas: num(raw[2]),
+      ids: primerArrayDeNumeros(raw),
+    };
   }
   if (raw && typeof raw === "object") {
     const o = raw as Record<string, unknown>;
-    const ids = Array.isArray(o.records) ? (o.records as unknown[]).map(num) : [];
+    const ids = Array.isArray(o.records) ? (o.records as unknown[]).map(num) : primerArrayDeNumeros(Object.values(o));
     return {
       totalDuracionSeg: num(o.clean_time),
       totalAreaM2: mm2aM2(o.clean_area),
