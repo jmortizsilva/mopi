@@ -3,6 +3,7 @@ import {
   anuncioActivacion,
   anuncioFalloActivacion,
   describirCuando,
+  etiquetaActivar,
   describirDias,
   describirProgramacion,
   parseDiasCron,
@@ -112,5 +113,14 @@ describe("anuncios de activar y desactivar", () => {
     expect(anuncioActivacion(a, true)).toBe("Activada, de martes a viernes a las 10:00");
     expect(anuncioActivacion(a, false)).toBe("Desactivada, de martes a viernes a las 10:00");
     expect(anuncioFalloActivacion(a, true)).toBe("No se pudo activar, de martes a viernes a las 10:00");
+  });
+});
+
+describe("etiquetaActivar", () => {
+  // Fallo visto en el móvil: el rotor seguía diciendo "activar" en las ya activadas.
+  it("cambia con el estado, porque el rotor solo lee este texto", () => {
+    const [a] = parseProgramaciones(REAL);
+    expect(etiquetaActivar(a)).toBe("Activar");
+    expect(etiquetaActivar({ ...a, activa: true })).toBe("Desactivar");
   });
 });

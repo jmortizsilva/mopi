@@ -14,6 +14,7 @@ import {
   anuncioActivacion,
   anuncioFalloActivacion,
   describirProgramacion,
+  etiquetaActivar,
   type Device,
   type Programacion,
   type RoborockClient,
@@ -94,9 +95,12 @@ export function ProgramacionesScreen({ client, device }: Props) {
               key={p.id}
               accessible
               accessibilityLabel={describirProgramacion(p)}
-              accessibilityActions={[{ name: "activar", label: p.activa ? "Desactivar" : "Activar" }]}
+              // El rotor lee `name`, no `label`: RCTViewComponentView.mm (RN 0.81) crea cada
+              // UIAccessibilityCustomAction solo con el name. Con name "activar" fijo, el rotor decía
+              // "activar" también en las activadas. Por eso el name es el propio texto.
+              accessibilityActions={[{ name: etiquetaActivar(p) }]}
               onAccessibilityAction={(e) => {
-                if (e.nativeEvent.actionName === "activar") cambiarActiva(p);
+                if (e.nativeEvent.actionName === etiquetaActivar(p)) cambiarActiva(p);
               }}
               // Sin esto, el doble toque de VoiceOver pulsa lo que haya en el centro de la fila, que
               // puede ser el botón de activar (guía de accesibilidad de comun/, "Fila de lista con
@@ -106,7 +110,7 @@ export function ProgramacionesScreen({ client, device }: Props) {
             >
               <Text style={[styles.itemTexto, { color: textColor }]}>{describirProgramacion(p)}</Text>
               <AccessibleButton
-                label={p.activa ? "Desactivar" : "Activar"}
+                label={etiquetaActivar(p)}
                 variant="secondary"
                 busy={ocupada === p.id}
                 onPress={() => cambiarActiva(p)}

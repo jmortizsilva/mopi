@@ -166,3 +166,11 @@ export function anuncioActivacion(p: Programacion, activa: boolean): string {
 export function anuncioFalloActivacion(p: Programacion, activa: boolean): string {
   return `No se pudo ${activa ? "activar" : "desactivar"}, ${describirCuando(p)}`;
 }
+
+/**
+ * Texto de la acción de activar, que sirve a la vez de `name` de la acción del rotor: en iOS con la
+ * arquitectura nueva el rotor lee el `name` e ignora el `label`, así que tiene que cambiar con el estado.
+ */
+export function etiquetaActivar(p: Programacion): "Activar" | "Desactivar" {
+  return p.activa ? "Desactivar" : "Activar";
+}
