@@ -1,0 +1,4 @@
+# El podspec de react-native-quick-crypto (>= 1.1.9) descarga OpenSSL y libsodium dentro de esta
+# carpeta durante `pod install`. EAS calcula la huella después de ese paso y la build falla por
+# huella distinta a la local. La versión del paquete sigue contando por sus otros ficheros.
+node_modules/react-native-quick-crypto/ios/**
