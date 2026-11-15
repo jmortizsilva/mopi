@@ -46,5 +46,27 @@ describe("decodeCleanRecord", () => {
   it("devuelve null si no hay datos suficientes", () => {
     expect(decodeCleanRecord([1, 2])).toBeNull();
     expect(decodeCleanRecord(null)).toBeNull();
+    expect(decodeCleanRecord([])).toBeNull();
+  });
+
+  // Fallo visto en el móvil: los totales salían pero "Últimas limpiezas" quedaba vacío, porque
+  // solo se entendía el formato de lista de números y el resto se descartaba sin avisar.
+  it("registro como objeto, envuelto o no", () => {
+    const o = { begin: 100, end: 400, duration: 300, area: 2_000_000, error: 0, complete: 1, start_type: 2 };
+    const esperado = { inicio: 100, fin: 400, duracionSeg: 300, areaM2: 2, error: 0, completada: true };
+    expect(decodeCleanRecord(o)).toEqual(esperado);
+    expect(decodeCleanRecord([o])).toEqual(esperado);
+  });
+
+  it("varios tramos de una limpieza se juntan como en python-roborock", () => {
+    const r = decodeCleanRecord([
+      { begin: 100, end: 200, duration: 100, area: 1_000_000, error: 0, complete: 0 },
+      { begin: 300, end: 500, duration: 200, area: 1_500_000, error: 0, complete: 1 },
+    ]);
+    expect(r).toEqual({ inicio: 100, fin: 500, duracionSeg: 300, areaM2: 2.5, error: 0, completada: true });
+  });
+
+  it("lista de números con campos de otro tipo al final", () => {
+    expect(decodeCleanRecord([100, 200, 100, 1_000_000, 0, 1, "x"])?.duracionSeg).toBe(100);
   });
 });

@@ -60,11 +60,46 @@ export function decodeCleanSummary(input: unknown): ResumenLimpieza {
   return { totalDuracionSeg: 0, totalAreaM2: 0, totalLimpiezas: 0, ids: [] };
 }
 
-/** Registro: `[[inicio, fin, duracion, area, error, completada, ...]]` o el array interno directo. */
+function esObjeto(v: unknown): v is Record<string, unknown> {
+  return v != null && typeof v === "object" && !Array.isArray(v);
+}
+
+function deObjeto(o: Record<string, unknown>): RegistroLimpieza {
+  return {
+    inicio: num(o.begin),
+    fin: num(o.end),
+    duracionSeg: num(o.duration),
+    areaM2: mm2aM2(o.area),
+    error: num(o.error),
+    completada: num(o.complete) === 1,
+  };
+}
+
+/**
+ * Registro de una limpieza, en cualquiera de los tres formatos que conoce python-roborock
+ * (`CleanRecordConverter`):
+ * - lista de números `[inicio, fin, duracion, area, error, completada, ...]`, envuelta o no en otra;
+ * - objeto `{begin, end, duration, area, error, complete, ...}`, envuelto o no en una lista;
+ * - lista de objetos, uno por tramo de la misma limpieza: se juntan como hace python-roborock
+ *   (inicio del primero, el resto del último, duración y área sumadas).
+ * Antes solo se entendía el primero, y con los objetos el historial salía vacío sin avisar.
+ */
 export function decodeCleanRecord(input: unknown): RegistroLimpieza | null {
   let r = input;
-  if (Array.isArray(r) && Array.isArray(r[0])) r = r[0]; // desenvolver [[...]]
-  if (!Array.isArray(r) || r.length < 4) return null;
+  if (Array.isArray(r) && r.length === 1) r = r[0]; // desenvolver [x]
+  if (esObjeto(r)) return deObjeto(r);
+  if (Array.isArray(r) && r.length > 0 && r.every(esObjeto)) {
+    const tramos = (r as Record<string, unknown>[]).map(deObjeto);
+    const ultimo = tramos[tramos.length - 1];
+    const areaMm2 = (r as Record<string, unknown>[]).reduce((t, o) => t + num(o.area), 0);
+    return {
+      ...ultimo,
+      inicio: tramos[0].inicio,
+      duracionSeg: tramos.reduce((t, x) => t + x.duracionSeg, 0),
+      areaM2: mm2aM2(areaMm2),
+    };
+  }
+  if (!Array.isArray(r) || r.length < 4 || !r.slice(0, 4).every((x) => typeof x === "number")) return null;
   return {
     inicio: num(r[0]),
     fin: num(r[1]),

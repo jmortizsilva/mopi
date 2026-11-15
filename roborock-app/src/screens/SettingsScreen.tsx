@@ -13,6 +13,7 @@ import type { RootStackParamList } from "../navigation";
 import {
   decodeConsumables,
   decodeFeatures,
+  decodeCleanSummary,
   type DecodedStatus,
   type DeviceCapabilities,
   entradaFeatures,
@@ -258,8 +259,11 @@ export function SettingsScreen({ client, device, onLogout }: Props) {
       const summaryRaw = await client.sendCommand(duid, "get_clean_summary").catch((e) => ({ error: (e as Error).message }));
       let recordRaw: unknown = "(sin ids)";
       const flat = JSON.stringify(summaryRaw);
-      const primerId = (flat.match(/\b(\d{9,})\b/) || [])[1];
-      if (primerId) recordRaw = await client.sendCommand(duid, "get_clean_record", { params: [Number(primerId)] }).catch((e) => ({ error: (e as Error).message }));
+      // El id más reciente, sacado con el mismo decodificador que el historial. Antes se cogía el
+      // primer número largo del texto, que era clean_area, y el registro salía vacío.
+      const ids = decodeCleanSummary(summaryRaw).ids;
+      const ultimoId = ids.length ? Math.max(...ids) : null;
+      if (ultimoId != null) recordRaw = await client.sendCommand(duid, "get_clean_record", { params: [ultimoId] }).catch((e) => ({ error: (e as Error).message }));
       // Programaciones en la nube: crudo, para descubrir el formato antes de implementarlas.
       const nube = client.homeId == null
         ? { error: "sin homeId" }
