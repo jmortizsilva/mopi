@@ -80,6 +80,12 @@ export const CHANGELOG: EntradaChangelog[] = [
       "Nuevo botón 'Historial de limpieza' en Inicio: ves las limpiezas anteriores y los totales.",
     ],
   },
+  {
+    v: 11,
+    notas: [
+      "Nuevo botón 'Programaciones' en Inicio: ves a qué hora y qué días limpia el robot solo. De momento solo se pueden consultar.",
+    ],
+  },
 ];
 
 /** Versión más alta del changelog incluida en este bundle. */

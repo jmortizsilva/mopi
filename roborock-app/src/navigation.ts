@@ -3,4 +3,5 @@ export type RootStackParamList = {
   Home: undefined;
   Settings: undefined;
   Historial: undefined;
+  Programaciones: undefined;
 };

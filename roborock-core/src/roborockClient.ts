@@ -14,6 +14,7 @@
  *   const status = await client.sendCommand(duid, "get_status");
  */
 import { HomeData, HttpApi, Product, Room } from "./httpApi";
+import { parseProgramaciones, type Programacion } from "./programaciones";
 import { RoborockMqtt } from "./mqttApi";
 import { buildV1Request, parseV1Response, PROTO_RPC_RESPONSE, RawFrame } from "./messageParser";
 import { PendingRequests } from "./pendingRequests";
@@ -276,6 +277,11 @@ export class RoborockClient {
    * Historial de limpieza: totales + las últimas `max` limpiezas ya decodificadas. Lee el resumen
    * (ids) y luego el detalle de cada id. Los registros que fallen se descartan.
    */
+  /** Programaciones guardadas en el robot (`get_timer`), ordenadas por hora. */
+  async getProgramaciones(duid: string): Promise<Programacion[]> {
+    return parseProgramaciones(await this.sendCommand(duid, METHOD.GET_TIMER));
+  }
+
   async getCleanHistory(duid: string, max = 20): Promise<{ resumen: ResumenLimpieza; limpiezas: RegistroLimpieza[] }> {
     const resumen = decodeCleanSummary(await this.sendCommand(duid, METHOD.CLEAN_SUMMARY, { timeoutMs: 15000 }));
     const ids = resumen.ids.slice(0, max);

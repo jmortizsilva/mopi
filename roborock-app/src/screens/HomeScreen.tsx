@@ -261,6 +261,7 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
       </View>
 
       <AccessibleButton label="Historial de limpieza" hint="Ver las limpiezas anteriores y los totales" onPress={() => navigation.navigate("Historial")} />
+      <AccessibleButton label="Programaciones" onPress={() => navigation.navigate("Programaciones")} />
       <AccessibleButton label="Configuración" hint="Estación, volumen, no molestar y más" onPress={() => navigation.navigate("Settings")} />
       <AccessibleButton label="Cerrar sesión" variant="danger" onPress={onLogout} />
     </ScrollView>

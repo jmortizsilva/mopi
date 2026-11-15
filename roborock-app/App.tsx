@@ -11,6 +11,7 @@ import { HttpApi, RoborockClient, type Device, type Region } from "./src/roboroc
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { HistorialScreen } from "./src/screens/HistorialScreen";
+import { ProgramacionesScreen } from "./src/screens/ProgramacionesScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import type { RootStackParamList } from "./src/navigation";
 import { useActualizacionesOTA } from "./src/actualizaciones/ota";
@@ -125,6 +126,9 @@ export default function App() {
             </Stack.Screen>
             <Stack.Screen name="Historial" options={{ title: "Historial de limpieza" }}>
               {(props) => <HistorialScreen {...props} client={client} device={device} />}
+            </Stack.Screen>
+            <Stack.Screen name="Programaciones" options={{ title: "Programaciones" }}>
+              {(props) => <ProgramacionesScreen {...props} client={client} device={device} />}
             </Stack.Screen>
           </Stack.Navigator>
         </NavigationContainer>
