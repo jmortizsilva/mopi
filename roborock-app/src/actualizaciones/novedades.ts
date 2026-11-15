@@ -100,6 +100,13 @@ export const CHANGELOG: EntradaChangelog[] = [
       "Cerrar sesión está ahora al final de Configuración.",
     ],
   },
+  {
+    v: 14,
+    notas: [
+      "Arreglado: en Historial ya salen las últimas limpiezas.",
+      "Al crear o editar una programación, la pantalla ocupa todo y ya no se llega a la barra de pestañas.",
+    ],
+  },
 ];
 
 /** Versión más alta del changelog incluida en este bundle. */

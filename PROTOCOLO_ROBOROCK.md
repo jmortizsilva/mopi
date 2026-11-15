@@ -429,6 +429,13 @@ feature_info  = [111..125]
 Validación: los flags decodificados coincidieron 1:1 con el sondeo por comando (`pet` sí, `gap`
 no, `right_brush` no, `carpet` sí, `stretch` sí). Es la fuente principal de "qué mostrar".
 
+### 8.4a Historial: `get_clean_record` responde con un OBJETO en el a170
+`get_clean_summary` llega como objeto (`{clean_time, clean_area, clean_count, records: [ids]}`) y
+`get_clean_record [id]` también: `{begin, end, duration, area, error, complete, ...}`, no la lista
+de números de los modelos antiguos. Comprobado el 2026-11-15: con el decodificador que solo
+entendía la lista, el historial salía vacío; al aceptar objetos (como `CleanRecordConverter` de
+python-roborock, que además junta los tramos si llega una lista de objetos) aparecen las limpiezas.
+
 ### 8.4b Programaciones: viven en el ROBOT (`get_timer`), no en la nube
 Sondeo del 2026-11-15 sobre el a170, con dos programaciones creadas en la app oficial:
 
