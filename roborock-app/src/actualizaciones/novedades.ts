@@ -93,6 +93,13 @@ export const CHANGELOG: EntradaChangelog[] = [
       "Y también añadir programaciones nuevas, cambiarlas y eliminarlas.",
     ],
   },
+  {
+    v: 13,
+    notas: [
+      "Pestañas abajo: Inicio, Programaciones, Historial y Configuración.",
+      "Cerrar sesión está ahora al final de Configuración.",
+    ],
+  },
 ];
 
 /** Versión más alta del changelog incluida en este bundle. */

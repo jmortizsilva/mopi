@@ -30,6 +30,7 @@ import { ToggleRow } from "../ui/ToggleRow";
 type Props = NativeStackScreenProps<RootStackParamList, "Settings"> & {
   client: RoborockClient;
   device: Device;
+  onLogout: () => void;
 };
 
 const WASH_TOWEL_OPTIONS: PickerOption[] = [
@@ -75,7 +76,7 @@ function leerStatus(v: unknown): { disponible: boolean; on: boolean } {
   return { disponible: false, on: false };
 }
 
-export function SettingsScreen({ client, device }: Props) {
+export function SettingsScreen({ client, device, onLogout }: Props) {
   const dark = useColorScheme() === "dark";
   const textColor = dark ? "#FFFFFF" : "#111111";
   const cardBg = dark ? "#1C1C1E" : "#F2F2F7";
@@ -456,6 +457,7 @@ export function SettingsScreen({ client, device }: Props) {
       <AccessibleButton label="Recargar ajustes" variant="secondary" busy={busy} onPress={load} />
       <AccessibleButton label="Buscar actualizaciones" variant="secondary" hint="Comprueba si hay una versión nueva de la app"
         onPress={() => comprobarActualizacion(true)} />
+      <AccessibleButton label="Cerrar sesión" variant="danger" onPress={onLogout} />
     </ScrollView>
   );
 }

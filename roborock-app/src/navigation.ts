@@ -1,6 +1,14 @@
 import type { Programacion } from "./roborock";
 
-/** Pantallas de la pila de navegación autenticada. */
+/** Pestañas de la barra inferior. Cada una lleva su propia pila. */
+export type TabParamList = {
+  InicioTab: undefined;
+  ProgramacionesTab: undefined;
+  HistorialTab: undefined;
+  ConfiguracionTab: undefined;
+};
+
+/** Pantallas de las pilas de cada pestaña. */
 export type RootStackParamList = {
   Home: undefined;
   Settings: undefined;

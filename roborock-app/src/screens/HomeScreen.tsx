@@ -18,13 +18,12 @@ import { controlesSegunEstado, summarizeStatus, type Device, type DecodedStatus,
 type Props = NativeStackScreenProps<RootStackParamList, "Home"> & {
   client: RoborockClient;
   device: Device;
-  onLogout: () => void;
 };
 
 // Cada cuánto se relee el estado en segundo plano (autorrefresco).
 const POLL_MS = 10000;
 
-export function HomeScreen({ navigation, client, device, onLogout }: Props) {
+export function HomeScreen({ client, device }: Props) {
   const dark = useColorScheme() === "dark";
   const textColor = dark ? "#FFFFFF" : "#111111";
   const cardBg = dark ? "#1C1C1E" : "#F2F2F7";
@@ -260,10 +259,6 @@ export function HomeScreen({ navigation, client, device, onLogout }: Props) {
         <AccessibleButton label="Actualizar estado" variant="secondary" busy={busy} onPress={() => refreshStatus()} />
       </View>
 
-      <AccessibleButton label="Historial de limpieza" hint="Ver las limpiezas anteriores y los totales" onPress={() => navigation.navigate("Historial")} />
-      <AccessibleButton label="Programaciones" onPress={() => navigation.navigate("Programaciones")} />
-      <AccessibleButton label="Configuración" hint="Estación, volumen, no molestar y más" onPress={() => navigation.navigate("Settings")} />
-      <AccessibleButton label="Cerrar sesión" variant="danger" onPress={onLogout} />
     </ScrollView>
     </SafeAreaView>
   );
