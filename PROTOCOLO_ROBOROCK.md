@@ -429,6 +429,29 @@ feature_info  = [111..125]
 Validación: los flags decodificados coincidieron 1:1 con el sondeo por comando (`pet` sí, `gap`
 no, `right_brush` no, `carpet` sí, `stretch` sí). Es la fuente principal de "qué mostrar".
 
+### 8.4b Programaciones: viven en el ROBOT (`get_timer`), no en la nube
+Sondeo del 2026-11-15 sobre el a170, con dos programaciones creadas en la app oficial:
+
+- **`get_timer`** las devuelve. Cada una: `[id, "on"|"off", [cron, ["start_clean", {params}]]]`.
+  ```
+  ["1786028936998","off",["0 10 * * 2,3,4,5",["start_clean",{"fan_power":108,"segments":"0",
+   "repeat":1,"clean_order_mode":0,"water_box_mode":200,"map_index":-1,"mop_mode":300,"seq_type":0}]]]
+  ```
+  - `id`: marca de tiempo en ms, **como cadena**.
+  - `cron`: `minuto hora * * días`, días de cron (0 = domingo; `2,3,4,5` = martes a viernes).
+    La hora es la del robot: `get_timezone` → `["Europe/Madrid"]` (ojo: `app_get_init_status`
+    dice `Europe/Berlin` en `local_info`; vale el de `get_timezone`).
+  - `params`: los mismos códigos que el modo de limpieza (§8.2). `segments: "0"` = toda la casa;
+    el formato con habitaciones concretas está **sin ver**.
+- **`get_server_timer`** → `-10007 "Not FCC robot"`: solo para robots de EE. UU.
+- **Nube**: `user/devices/{duid}/jobs` responde `[]`. Las **escenas** (`user/scene/device/{duid}` y
+  `user/scene/home/{homeId}`) sí devuelven las rutinas de la app oficial (`type: "WORKFLOW"`), con
+  el comando dentro (`do_scenes_segments`, con `segs: [{sid}]` por habitación). Funcionan también
+  desde la cuenta compartida.
+- **Escritura sin comprobar**: `set_timer`, `upd_timer` (activar/desactivar) y `del_timer` vienen
+  de las integraciones de otros robots; el formato exacto de los params en este modelo está por
+  confirmar con una prueba real antes de ofrecerlo.
+
 ### 8.5 Comandos B01 (solo si tu robot resultara ser B01)
 Control por propiedades: `prop.set { wind:1-5, water:1-3, mode:0/1/2, child_lock:0/1 }`,
 acciones vía `prop.set { status: N }` (start=1, stop=2, pause=10, charge=6) y `service.*`.
