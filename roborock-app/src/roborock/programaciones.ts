@@ -156,3 +156,13 @@ export function describirProgramacion(p: Programacion): string {
   }
   return `${partes.filter(Boolean).join(", ")}. ${p.activa ? "Activada" : "Desactivada"}.`;
 }
+
+/** Anuncio tras activar o desactivar: primero el resultado, luego cuál. "Activada, de martes a viernes a las 10:00". */
+export function anuncioActivacion(p: Programacion, activa: boolean): string {
+  return `${activa ? "Activada" : "Desactivada"}, ${describirCuando(p)}`;
+}
+
+/** Anuncio si el robot no lo guarda. "No se pudo activar, de martes a viernes a las 10:00". */
+export function anuncioFalloActivacion(p: Programacion, activa: boolean): string {
+  return `No se pudo ${activa ? "activar" : "desactivar"}, ${describirCuando(p)}`;
+}

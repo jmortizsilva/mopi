@@ -282,6 +282,19 @@ export class RoborockClient {
     return parseProgramaciones(await this.sendCommand(duid, METHOD.GET_TIMER));
   }
 
+  /**
+   * Activa o desactiva una programación y relee para comprobar que el robot lo ha guardado: un
+   * "ok" del robot no basta (con params mal formados algunos sets responden ok sin hacer nada).
+   * Devuelve la programación tal como quedó.
+   */
+  async setProgramacionActiva(duid: string, id: string, activa: boolean): Promise<Programacion> {
+    await this.sendCommand(duid, METHOD.UPD_TIMER, { params: [id, activa ? "on" : "off"] });
+    const quedo = (await this.getProgramaciones(duid)).find((p) => p.id === id);
+    if (!quedo) throw new Error("La programación ya no está en el robot.");
+    if (quedo.activa !== activa) throw new Error("El robot no ha guardado el cambio.");
+    return quedo;
+  }
+
   async getCleanHistory(duid: string, max = 20): Promise<{ resumen: ResumenLimpieza; limpiezas: RegistroLimpieza[] }> {
     const resumen = decodeCleanSummary(await this.sendCommand(duid, METHOD.CLEAN_SUMMARY, { timeoutMs: 15000 }));
     const ids = resumen.ids.slice(0, max);

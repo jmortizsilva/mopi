@@ -86,6 +86,12 @@ export const CHANGELOG: EntradaChangelog[] = [
       "Nuevo botón 'Programaciones' en Inicio: ves a qué hora y qué días limpia el robot solo. De momento solo se pueden consultar.",
     ],
   },
+  {
+    v: 12,
+    notas: [
+      "En Programaciones ya puedes activar y desactivar cada una.",
+    ],
+  },
 ];
 
 /** Versión más alta del changelog incluida en este bundle. */

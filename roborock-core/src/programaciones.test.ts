@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  anuncioActivacion,
+  anuncioFalloActivacion,
   describirCuando,
   describirDias,
   describirProgramacion,
@@ -101,5 +103,14 @@ describe("describirProgramacion", () => {
     expect(describirCuando(a)).toBe("de martes a viernes a las 10:00");
     const f = parseProgramacion(["1", "on", ["30 9 15 11 *", ["start_clean", {}]]])!;
     expect(describirCuando(f)).toBe("el 15 de noviembre a las 9:30");
+  });
+});
+
+describe("anuncios de activar y desactivar", () => {
+  it("primero el resultado y después cuál", () => {
+    const [a] = parseProgramaciones(REAL);
+    expect(anuncioActivacion(a, true)).toBe("Activada, de martes a viernes a las 10:00");
+    expect(anuncioActivacion(a, false)).toBe("Desactivada, de martes a viernes a las 10:00");
+    expect(anuncioFalloActivacion(a, true)).toBe("No se pudo activar, de martes a viernes a las 10:00");
   });
 });
