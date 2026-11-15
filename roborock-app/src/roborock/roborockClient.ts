@@ -111,6 +111,10 @@ export class RoborockClient {
     return this.home?.products ?? [];
   }
 
+  get homeId(): number | null {
+    return this.home?.homeId ?? null;
+  }
+
   /** Cadena de modelo del dispositivo (p. ej. "roborock.vacuum.a170"), o null si se desconoce. */
   modelFor(duid: string): string | null {
     const device = this.devices.find((d) => d.duid === duid);
@@ -369,6 +373,9 @@ export class RoborockClient {
       ["gap_deep_clean", METHOD.GET_GAP_DEEP_CLEAN],
       ["carpet_deep_clean", METHOD.GET_CARPET_DEEP_CLEAN],
       ["carpet_clean_mode", METHOD.GET_CARPET_CLEAN_MODE],
+      ["timer", METHOD.GET_TIMER],
+      ["server_timer", METHOD.GET_SERVER_TIMER],
+      ["timezone", METHOD.GET_TIMEZONE],
     ];
     const out: Record<string, unknown> = {};
     for (const [name, method] of reads) {

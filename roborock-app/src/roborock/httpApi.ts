@@ -299,6 +299,29 @@ export class HttpApi {
     }
   }
 
+  /**
+   * Sondeo de programaciones en la nube (solo lectura), para conocer el formato antes de
+   * implementarlas. Los modelos nuevos guardan las programaciones de la app oficial en la nube
+   * ("jobs") y las rutinas como "escenas", no en el robot. Las rutas vienen de python-roborock y
+   * no están comprobadas en nuestros modelos: por eso se devuelve la respuesta cruda o el error.
+   */
+  async sondearProgramaciones(duid: string, homeId: number): Promise<Record<string, unknown>> {
+    const rutas: [string, string][] = [
+      ["jobs", `user/devices/${duid}/jobs`],
+      ["escenas_dispositivo", `user/scene/device/${duid}`],
+      ["escenas_casa", `user/scene/home/${homeId}`],
+    ];
+    const out: Record<string, unknown> = {};
+    for (const [nombre, ruta] of rutas) {
+      try {
+        out[nombre] = await this.realApiGet(ruta);
+      } catch (e) {
+        out[nombre] = { error: (e as Error).message };
+      }
+    }
+    return out;
+  }
+
   /** Mapa duid → localKey (necesario para cifrar/descifrar mensajes). */
   static localKeyMap(home: HomeData): Map<string, string> {
     return new Map(home.devices.map((d) => [d.duid, d.localKey]));

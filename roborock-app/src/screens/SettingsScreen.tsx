@@ -259,6 +259,10 @@ export function SettingsScreen({ client, device }: Props) {
       const flat = JSON.stringify(summaryRaw);
       const primerId = (flat.match(/\b(\d{9,})\b/) || [])[1];
       if (primerId) recordRaw = await client.sendCommand(duid, "get_clean_record", { params: [Number(primerId)] }).catch((e) => ({ error: (e as Error).message }));
+      // Programaciones en la nube: crudo, para descubrir el formato antes de implementarlas.
+      const nube = client.homeId == null
+        ? { error: "sin homeId" }
+        : await client.http.sondearProgramaciones(duid, client.homeId).catch((e) => ({ error: (e as Error).message }));
       const texto =
         `=== Funciones avanzadas (${client.modelFor(duid) ?? "?"}) ===\n` +
         `newFeatureSet: ${device.newFeatureSet ?? "(no en home data)"}\n` +
@@ -274,7 +278,11 @@ export function SettingsScreen({ client, device }: Props) {
           .join("\n") +
         `\n--- historial (crudo) ---\n` +
         `get_clean_summary: ${flat}\n` +
-        `get_clean_record: ${JSON.stringify(recordRaw)}`;
+        `get_clean_record: ${JSON.stringify(recordRaw)}` +
+        `\n--- programaciones en la nube (crudo) ---\n` +
+        Object.entries(nube)
+          .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+          .join("\n");
       await Share.share({ message: texto });
     } catch (e) {
       Alert.alert("Sondeo", "No se pudo: " + (e as Error).message);

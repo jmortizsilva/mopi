@@ -91,4 +91,9 @@ export const METHOD = {
   SET_CARPET_DEEP_CLEAN: "app_set_carpet_deep_clean_status",
   GET_CARPET_CLEAN_MODE: "get_carpet_clean_mode",
   GET_INIT_STATUS: "app_get_init_status", // capacidades del modelo (feature flags)
+
+  // --- Programaciones guardadas en el robot (modelos antiguos; en los nuevos van a la nube) ---
+  GET_TIMER: "get_timer",
+  GET_SERVER_TIMER: "get_server_timer",
+  GET_TIMEZONE: "get_timezone",
 } as const;
