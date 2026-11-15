@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   anuncioActivacion,
+  anuncioEliminada,
+  anuncioGuardada,
+  borradorConModo,
+  borradorDe,
+  borradorNuevo,
+  cronDe,
+  idsNuevos,
+  paramsSetTimer,
+  preguntaEliminar,
+  validarBorrador,
   anuncioFalloActivacion,
   describirCuando,
   etiquetaActivar,
@@ -122,5 +132,64 @@ describe("etiquetaActivar", () => {
     const [a] = parseProgramaciones(REAL);
     expect(etiquetaActivar(a)).toBe("Activar");
     expect(etiquetaActivar({ ...a, activa: true })).toBe("Desactivar");
+  });
+});
+
+describe("crear y editar", () => {
+  it("cron: días ordenados y los siete como asterisco", () => {
+    expect(cronDe({ ...borradorNuevo(), hora: 10, minuto: 5, dias: [5, 2, 3, 4] })).toBe("5 10 * * 2,3,4,5");
+    expect(cronDe(borradorNuevo())).toBe("0 10 * * *");
+  });
+
+  it("ida y vuelta: lo que se guarda se lee igual", () => {
+    const b = { ...borradorNuevo(), hora: 7, minuto: 30, dias: [1, 3, 5] };
+    const [[id, cuerpo]] = paramsSetTimer("123", b) as [[string, unknown[]]];
+    const leida = parseProgramacion([id, "on", cuerpo])!;
+    expect(borradorDe(leida)).toEqual(b);
+  });
+
+  it("al editar conserva los params que no se eligen (habitaciones)", () => {
+    const [a] = parseProgramaciones(REAL);
+    const base = { ...a.params, segments: "6,7" };
+    const [[, [, [, params]]]] = paramsSetTimer("1", borradorDe({ ...a, params: base }), base) as [[string, [string, [string, Record<string, unknown>]]]];
+    expect(params.segments).toBe("6,7");
+    expect(params.map_index).toBe(-1);
+  });
+
+  it("borrador de la programación real", () => {
+    const [a] = parseProgramaciones(REAL);
+    expect(borradorDe(a)).toEqual({ hora: 10, minuto: 0, dias: [2, 3, 4, 5], fanPower: 108, waterBox: 200, mopMode: 300 });
+  });
+
+  it("cambiar de modo deja valores que el modo admite", () => {
+    const aspirar = { ...borradorNuevo(), fanPower: 108 };
+    const fregando = borradorConModo(aspirar, "aspirar_fregar");
+    expect(fregando.waterBox).toBe(202);
+    expect(fregando.fanPower).toBe(104); // Máximo+ no se mantiene fregando
+    const soloFregar = borradorConModo({ ...fregando, mopMode: 301 }, "fregar");
+    expect(soloFregar.fanPower).toBe(105);
+    expect(soloFregar.mopMode).toBe(301);
+    const otraVez = borradorConModo(soloFregar, "aspirar_fregar");
+    expect(otraVez.mopMode).toBe(300); // la ruta profunda no se ofrece al aspirar y fregar
+    expect(borradorConModo(otraVez, "aspirar").waterBox).toBe(200);
+  });
+
+  it("sin días no se puede guardar", () => {
+    expect(validarBorrador({ ...borradorNuevo(), dias: [] })).toBe("Elige al menos un día.");
+    expect(validarBorrador(borradorNuevo())).toBeNull();
+  });
+
+  it("anuncios y pregunta de eliminar", () => {
+    const [a] = parseProgramaciones(REAL);
+    expect(anuncioGuardada(borradorDe(a))).toBe("Guardada, de martes a viernes a las 10:00");
+    expect(anuncioGuardada(borradorNuevo())).toBe("Guardada, todos los días a las 10:00");
+    expect(anuncioEliminada(a)).toBe("Eliminada, de martes a viernes a las 10:00");
+    expect(preguntaEliminar(a)).toBe("¿Eliminar la programación de las 10:00?");
+  });
+
+  it("encuentra la recién creada aunque el robot le cambie el id", () => {
+    const antes = parseProgramaciones(REAL);
+    const nueva = parseProgramacion(["999", "on", ["0 8 * * *", ["start_clean", {}]]])!;
+    expect(idsNuevos(antes, [...antes, nueva])).toEqual(["999"]);
   });
 });

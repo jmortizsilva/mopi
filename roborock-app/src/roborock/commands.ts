@@ -94,7 +94,9 @@ export const METHOD = {
 
   // --- Programaciones guardadas en el robot (modelos antiguos; en los nuevos van a la nube) ---
   GET_TIMER: "get_timer",
-  UPD_TIMER: "upd_timer", // [id, "on"|"off"]; formato de python-miio, sin comprobar en el a170
+  UPD_TIMER: "upd_timer", // [id, "on"|"off"]; comprobado en el a170 el 2026-11-15
+  SET_TIMER: "set_timer", // [[id, [cron, ["start_clean", params]]]]; formato de python-miio, sin comprobar
+  DEL_TIMER: "del_timer", // [id]; formato de python-miio, sin comprobar
   GET_SERVER_TIMER: "get_server_timer",
   GET_TIMEZONE: "get_timezone",
 } as const;

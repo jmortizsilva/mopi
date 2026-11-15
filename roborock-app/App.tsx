@@ -12,6 +12,7 @@ import { HomeScreen } from "./src/screens/HomeScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { HistorialScreen } from "./src/screens/HistorialScreen";
 import { ProgramacionesScreen } from "./src/screens/ProgramacionesScreen";
+import { EditarProgramacionScreen } from "./src/screens/EditarProgramacionScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import type { RootStackParamList } from "./src/navigation";
 import { useActualizacionesOTA } from "./src/actualizaciones/ota";
@@ -129,6 +130,12 @@ export default function App() {
             </Stack.Screen>
             <Stack.Screen name="Programaciones" options={{ title: "Programaciones" }}>
               {(props) => <ProgramacionesScreen {...props} client={client} device={device} />}
+            </Stack.Screen>
+            <Stack.Screen
+              name="EditarProgramacion"
+              options={({ route }) => ({ title: route.params?.programacion ? "Editar programación" : "Nueva programación" })}
+            >
+              {(props) => <EditarProgramacionScreen {...props} client={client} device={device} />}
             </Stack.Screen>
           </Stack.Navigator>
         </NavigationContainer>

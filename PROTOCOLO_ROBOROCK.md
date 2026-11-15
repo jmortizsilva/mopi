@@ -448,9 +448,12 @@ Sondeo del 2026-11-15 sobre el a170, con dos programaciones creadas en la app of
   `user/scene/home/{homeId}`) sí devuelven las rutinas de la app oficial (`type: "WORKFLOW"`), con
   el comando dentro (`do_scenes_segments`, con `segs: [{sid}]` por habitación). Funcionan también
   desde la cuenta compartida.
-- **Escritura sin comprobar**: `set_timer`, `upd_timer` (activar/desactivar) y `del_timer` vienen
-  de las integraciones de otros robots; el formato exacto de los params en este modelo está por
-  confirmar con una prueba real antes de ofrecerlo.
+- **`upd_timer [id, "on"|"off"]`**: comprobado en el a170 el 2026-11-15 (activar y desactivar desde
+  Mopi se refleja en la app oficial).
+- **Sin comprobar todavía**: `set_timer [[id, [cron, ["start_clean", params]]]]` (sin el "on"/"off"
+  que trae `get_timer`) y `del_timer [id]`, formatos de python-miio. Mopi relee `get_timer` después
+  de cada escritura y solo da por bueno lo que el robot haya guardado de verdad. No hay orden para
+  editar: se crea la nueva y luego se borra la vieja.
 
 ### 8.5 Comandos B01 (solo si tu robot resultara ser B01)
 Control por propiedades: `prop.set { wind:1-5, water:1-3, mode:0/1/2, child_lock:0/1 }`,

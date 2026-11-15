@@ -90,6 +90,7 @@ export const CHANGELOG: EntradaChangelog[] = [
     v: 12,
     notas: [
       "En Programaciones ya puedes activar y desactivar cada una.",
+      "Y también añadir programaciones nuevas, cambiarlas y eliminarlas.",
     ],
   },
 ];

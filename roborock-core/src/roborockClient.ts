@@ -14,7 +14,7 @@
  *   const status = await client.sendCommand(duid, "get_status");
  */
 import { HomeData, HttpApi, Product, Room } from "./httpApi";
-import { parseProgramaciones, type Programacion } from "./programaciones";
+import { idsNuevos, paramsSetTimer, parseProgramaciones, type BorradorProgramacion, type Programacion } from "./programaciones";
 import { RoborockMqtt } from "./mqttApi";
 import { buildV1Request, parseV1Response, PROTO_RPC_RESPONSE, RawFrame } from "./messageParser";
 import { PendingRequests } from "./pendingRequests";
@@ -293,6 +293,49 @@ export class RoborockClient {
     if (!quedo) throw new Error("La programación ya no está en el robot.");
     if (quedo.activa !== activa) throw new Error("El robot no ha guardado el cambio.");
     return quedo;
+  }
+
+  /**
+   * Crea una programación y la devuelve tal como la guardó el robot. Se busca por los ids que no
+   * estaban antes, por si el robot no respeta el id que se le manda.
+   */
+  async crearProgramacion(
+    duid: string,
+    b: BorradorProgramacion,
+    base?: Record<string, unknown>,
+    ahora: () => number = Date.now,
+  ): Promise<Programacion> {
+    const antes = await this.getProgramaciones(duid);
+    await this.sendCommand(duid, METHOD.SET_TIMER, { params: paramsSetTimer(String(ahora()), b, base) });
+    const despues = await this.getProgramaciones(duid);
+    const nuevos = idsNuevos(antes, despues);
+    if (nuevos.length !== 1) throw new Error("El robot no ha guardado la programación.");
+    return despues.find((p) => p.id === nuevos[0])!;
+  }
+
+  /** Elimina una programación y comprueba que ya no está. */
+  async eliminarProgramacion(duid: string, id: string): Promise<void> {
+    await this.sendCommand(duid, METHOD.DEL_TIMER, { params: [id] });
+    if ((await this.getProgramaciones(duid)).some((p) => p.id === id)) {
+      throw new Error("El robot no ha eliminado la programación.");
+    }
+  }
+
+  /**
+   * Editar = crear la nueva y después borrar la vieja, en ese orden: si algo falla a medias queda
+   * repetida, pero no se pierde. Conserva los params que no se eligen en pantalla (habitaciones) y
+   * el estado activada/desactivada de la original.
+   */
+  async editarProgramacion(
+    duid: string,
+    original: Programacion,
+    b: BorradorProgramacion,
+    ahora: () => number = Date.now,
+  ): Promise<Programacion> {
+    let nueva = await this.crearProgramacion(duid, b, original.params, ahora);
+    if (nueva.activa !== original.activa) nueva = await this.setProgramacionActiva(duid, nueva.id, original.activa);
+    await this.eliminarProgramacion(duid, original.id);
+    return nueva;
   }
 
   async getCleanHistory(duid: string, max = 20): Promise<{ resumen: ResumenLimpieza; limpiezas: RegistroLimpieza[] }> {
