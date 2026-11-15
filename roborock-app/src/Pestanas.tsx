@@ -45,12 +45,6 @@ function PilaProgramaciones({ client, device }: Omit<Props, "onLogout">) {
       <Stack.Screen name="Programaciones" options={{ title: "Programaciones" }}>
         {(props) => <ProgramacionesScreen {...props} client={client} device={device} />}
       </Stack.Screen>
-      <Stack.Screen
-        name="EditarProgramacion"
-        options={({ route }) => ({ title: route.params?.programacion ? "Editar programación" : "Nueva programación" })}
-      >
-        {(props) => <EditarProgramacionScreen {...props} client={client} device={device} />}
-      </Stack.Screen>
     </Stack.Navigator>
   );
 }
@@ -75,7 +69,7 @@ function PilaConfiguracion({ client, device, onLogout }: Props) {
   );
 }
 
-export function Pestanas({ client, device, onLogout }: Props) {
+function BarraPestanas({ client, device, onLogout }: Props) {
   return (
     <Tab.Navigator>
       <Tab.Screen name="InicioTab" options={{ tabBarLabel: "Inicio", tabBarIcon: { type: "sfSymbol", name: "house.fill" } }}>
@@ -100,5 +94,27 @@ export function Pestanas({ client, device, onLogout }: Props) {
         {() => <PilaConfiguracion client={client} device={device} onLogout={onLogout} />}
       </Tab.Screen>
     </Tab.Navigator>
+  );
+}
+
+/**
+ * Pila raíz por encima de la barra. El editor de programaciones va aquí y no en la pila de su
+ * pestaña: así tapa la barra y VoiceOver no puede salir del editor deslizando. Un modal no basta,
+ * porque `accessibilityViewIsModal` no cubre la barra de pestañas, que vive fuera de su jerarquía
+ * (comun/docs/GUIA-ACCESIBILIDAD-RN.md, "Overlays como modal").
+ */
+export function Pestanas({ client, device, onLogout }: Props) {
+  return (
+    <Stack.Navigator screenOptions={opcionesPila}>
+      <Stack.Screen name="Pestanas" options={{ headerShown: false }}>
+        {() => <BarraPestanas client={client} device={device} onLogout={onLogout} />}
+      </Stack.Screen>
+      <Stack.Screen
+        name="EditarProgramacion"
+        options={({ route }) => ({ title: route.params?.programacion ? "Editar programación" : "Nueva programación" })}
+      >
+        {(props) => <EditarProgramacionScreen {...props} client={client} device={device} />}
+      </Stack.Screen>
+    </Stack.Navigator>
   );
 }

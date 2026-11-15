@@ -8,8 +8,9 @@ export type TabParamList = {
   ConfiguracionTab: undefined;
 };
 
-/** Pantallas de las pilas de cada pestaña. */
+/** Pantallas de las pilas. "Pestanas" es la barra entera, en la pila raíz. */
 export type RootStackParamList = {
+  Pestanas: undefined;
   Home: undefined;
   Settings: undefined;
   Historial: undefined;
